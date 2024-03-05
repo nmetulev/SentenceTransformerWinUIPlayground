@@ -29,7 +29,7 @@ namespace SentenceTransformerPlayground
             var modelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model");
 
             var sentence = "this is a test";
-            var tokenizer = new MyTokenizer();
+            var tokenizer = new MyTokenizer($@"{modelPath}\vocab.txt");
             var tokens = tokenizer.Tokenize(sentence);
             var encoded = tokenizer.Encode(tokens.Count(), sentence);
 
@@ -41,7 +41,7 @@ namespace SentenceTransformerPlayground
             };
 
             var runOptions = new RunOptions();
-            var session = new InferenceSession($@"{modelPath}\sentenceTransformer.onnx");
+            var session = new InferenceSession($@"{modelPath}\model.onnx");
 
             // Create input tensors over the input data.
             using var inputIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.InputIds,
@@ -94,6 +94,6 @@ namespace SentenceTransformerPlayground
 
     public class MyTokenizer : UncasedTokenizer
     {
-        public MyTokenizer() : base(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model") + "\\vocab.txt"){ }
+        public MyTokenizer(string vocabPath) : base(vocabPath){ }
     }
 }

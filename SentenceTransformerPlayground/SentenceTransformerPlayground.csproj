@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <PackageReference Include="BERTTokenizers" Version="1.2.0" />
-    <PackageReference Include="libtorch-cpu" Version="2.2.1.1" />
+    <PackageReference Include="libtorch-cpu-win-x64" Version="2.2.1.1" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.17.1" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.4.230913002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.755" />
@@ -41,7 +41,7 @@
     <ProjectCapability Include="Msix" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="model\sentenceTransformer.onnx">
+    <None Update="model\model.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="model\vocab.txt">
