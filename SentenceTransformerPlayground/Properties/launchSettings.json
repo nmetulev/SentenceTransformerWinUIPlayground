@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SentenceTransformerPlayground (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "SentenceTransformerPlayground (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
