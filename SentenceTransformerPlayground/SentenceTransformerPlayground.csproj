@@ -25,10 +25,11 @@
   <ItemGroup>
     <PackageReference Include="BERTTokenizers" Version="1.2.0" />
     <PackageReference Include="libtorch-cpu-win-x64" Version="2.2.1.1" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.17.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.1" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.4.230913002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.755" />
     <PackageReference Include="TorchSharp" Version="0.102.1" />
+    <PackageReference Include="Vortice.DXGI" Version="3.3.4" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
