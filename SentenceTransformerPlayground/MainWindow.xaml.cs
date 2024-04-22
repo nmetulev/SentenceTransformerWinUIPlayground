@@ -3,8 +3,10 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
+using SharpDX.DXGI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -48,10 +50,27 @@ namespace SentenceTransformerPlayground
                 return;
             }
 
+            var factory1 = new Factory1();
+            int deviceId = 0;
+            Adapter1 selectedAdapter = null;
+            for (int i = 0; i < factory1.GetAdapterCount1(); i++)
+            {
+                Adapter1 adapter = factory1.GetAdapter1(i);
+                Debug.WriteLine("Adapter {i}:");
+                Debug.WriteLine($"\tDescription: {adapter.Description1.Description}");
+                Debug.WriteLine($"\tDedicatedVideoMemory: {(int)adapter.Description1.DedicatedVideoMemory}");
+                if(selectedAdapter == null || (long)adapter.Description1.DedicatedVideoMemory > (long)selectedAdapter.Description1.DedicatedVideoMemory)
+                {
+                    selectedAdapter = adapter;
+                    deviceId = i;
+                }
+            }
 
-            var sessionOptions = new SessionOptions();
-            sessionOptions.LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO;
-            sessionOptions.AppendExecutionProvider_DML(1); //hardcoded to my machine - how do I get the device id?
+            var sessionOptions = new SessionOptions
+            {
+                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
+            };
+            sessionOptions.AppendExecutionProvider_DML(deviceId);
             _inferenceSession = new InferenceSession($@"{modelDir}\model.onnx", sessionOptions);
         }
 
