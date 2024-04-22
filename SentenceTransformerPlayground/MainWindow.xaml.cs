@@ -56,9 +56,9 @@ namespace SentenceTransformerPlayground
             for (int i = 0; i < factory1.GetAdapterCount1(); i++)
             {
                 Adapter1 adapter = factory1.GetAdapter1(i);
-                Debug.WriteLine("Adapter {i}:");
+                Debug.WriteLine($"Adapter {i}:");
                 Debug.WriteLine($"\tDescription: {adapter.Description1.Description}");
-                Debug.WriteLine($"\tDedicatedVideoMemory: {(int)adapter.Description1.DedicatedVideoMemory}");
+                Debug.WriteLine($"\tDedicatedVideoMemory: {(long)adapter.Description1.DedicatedVideoMemory / 1000000000}GB");
                 if(selectedAdapter == null || (long)adapter.Description1.DedicatedVideoMemory > (long)selectedAdapter.Description1.DedicatedVideoMemory)
                 {
                     selectedAdapter = adapter;
