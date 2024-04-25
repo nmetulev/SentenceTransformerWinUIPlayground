@@ -13,10 +13,12 @@
             <RowDefinition Height="*"></RowDefinition>
             <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="50"></RowDefinition>
         </Grid.RowDefinitions>
-        <RichEditBox x:Name="ContentTextBox" TextChanged="ContentTextBox_TextChanged" Grid.Row="0"></RichEditBox>
-        <TextBox x:Name="SearchTextBox" TextChanged="SearchTextBox_TextChanged" Grid.Row="1"></TextBox>
-        <TextBlock x:Name="FoundSentenceTextBlock" Grid.Row="2"></TextBlock>
+        <Button x:Name="IndexPDFButton" Grid.Row="0" Content="Index PDF" Click="IndexPDFButton_Click" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="16"/>
+        <ProgressBar x:Name="IndexPDFProgressBar" Grid.Row="1" Visibility="Collapsed"/>
+        <TextBox x:Name="SearchTextBox" TextChanged="SearchTextBox_TextChanged" Grid.Row="2"/>
+        <TextBlock x:Name="FoundSentenceTextBlock" Grid.Row="3" TextWrapping="WrapWholeWords"/>
     </Grid>
 </Window>
