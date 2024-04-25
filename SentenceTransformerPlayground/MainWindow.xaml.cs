@@ -49,6 +49,8 @@ namespace SentenceTransformerPlayground
             _timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
 
             SLMOracle = new SLMOracle();
+            SLMOracle.ModelLoaded += (sender, e) => DispatcherQueue.TryEnqueue(() => AskOracleButton.IsEnabled = true);
+            SLMOracle.InitializeAsync();
         }
 
         [MemberNotNull(nameof(_inferenceSession))]

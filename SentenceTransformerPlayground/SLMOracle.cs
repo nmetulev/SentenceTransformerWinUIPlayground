@@ -5,21 +5,20 @@ using Microsoft.ML.OnnxRuntimeGenAI;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace SentenceTransformerPlayground
 {
     public class SLMOracle : IDisposable
     {
-        private string ModelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model", "phi2_int4_cpu_2");
+        private string ModelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model", "Phi-3-mini-4k-instruct-onnx\\cpu-int4-rtn-block-32");
 
         private Model model;
         private Tokenizer tokenizer;
+        public event EventHandler ModelLoaded;
 
-        public SLMOracle()
-        {
-            model = new Model(ModelDir);
-            tokenizer = new Tokenizer(model);
-        }
+        public bool IsReady => model != null && tokenizer != null;
 
         public void Dispose()
         {
@@ -29,6 +28,11 @@ namespace SentenceTransformerPlayground
 
         public string Infer(string prompt)
         {
+            if (!IsReady)
+            {
+                throw new InvalidOperationException("Model is not ready");
+            }
+
             var generatorParams = new GeneratorParams(model);
 
             var sequences = tokenizer.Encode(prompt);
@@ -44,6 +48,11 @@ namespace SentenceTransformerPlayground
 
         public async IAsyncEnumerable<string> InferStreaming(string prompt)
         {
+            if (!IsReady)
+            {
+                throw new InvalidOperationException("Model is not ready");
+            }
+
             var generatorParams = new GeneratorParams(model);
 
             var sequences = tokenizer.Encode(prompt);
@@ -68,6 +77,19 @@ namespace SentenceTransformerPlayground
                 }
                 yield return part;
             }
+        }
+
+        public Task InitializeAsync()
+        {
+            return Task.Run(() =>
+            {
+                var sw = Stopwatch.StartNew();
+                model = new Model(ModelDir);
+                tokenizer = new Tokenizer(model);
+                sw.Stop();
+                Debug.WriteLine($"Model loading took {sw.ElapsedMilliseconds} ms");
+                ModelLoaded?.Invoke(this, EventArgs.Empty);
+            });
         }
     }
 }
