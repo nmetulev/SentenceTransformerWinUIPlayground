@@ -20,5 +20,6 @@
         <ProgressBar x:Name="IndexPDFProgressBar" Grid.Row="1" Visibility="Collapsed"/>
         <TextBox x:Name="SearchTextBox" TextChanged="SearchTextBox_TextChanged" Grid.Row="2"/>
         <TextBlock x:Name="FoundSentenceTextBlock" Grid.Row="3" TextWrapping="WrapWholeWords"/>
+        <Button Content="Click Me" Click="Button_Click" Grid.Row="3" HorizontalAlignment="Right"/>
     </Grid>
 </Window>

@@ -26,7 +26,10 @@
     <PackageReference Include="BERTTokenizers" Version="1.2.0" />
     <PackageReference Include="libtorch-cpu-win-x64" Version="2.2.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.3" />
+    <!--<PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.3" />-->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.17.3" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.2.0-rc3" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.Managed" Version="0.2.0-rc3" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240404000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />
     <PackageReference Include="PdfPig" Version="0.1.8" />
@@ -46,6 +49,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Update="model\model.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="model\phi2_int4_cpu_2\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="model\vocab.txt">

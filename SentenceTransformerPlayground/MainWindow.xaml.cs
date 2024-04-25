@@ -7,12 +7,10 @@ using Microsoft.UI.Xaml.Controls;
 using SharpDX.DXGI;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -23,16 +21,9 @@ using VectorDB;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
-using static TorchSharp.torch.nn;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
 
 namespace SentenceTransformerPlayground
 {
-    /// <summary>
-    /// An empty window that can be used on its own or navigated to within a Frame.
-    /// </summary>
     public sealed partial class MainWindow : Window
     {
         // model from https://huggingface.co/optimum/all-MiniLM-L6-v2
@@ -42,6 +33,7 @@ namespace SentenceTransformerPlayground
         private List<TextChunk>? _content;
         private VectorCollection<TextChunk>? _embeddings = null;
         private MyTokenizer? tokenizer = null;
+        private SLMOracle SLMOracle;
 
         [GeneratedRegex(@"[\u0000-\u001F\u007F-\uFFFF]")]
         private static partial Regex MyRegex();
@@ -55,6 +47,8 @@ namespace SentenceTransformerPlayground
                 Interval = 200
             };
             _timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
+
+            SLMOracle = new SLMOracle();
         }
 
         [MemberNotNull(nameof(_inferenceSession))]
@@ -65,6 +59,11 @@ namespace SentenceTransformerPlayground
                 return;
             }
 
+            var sessionOptions = new SessionOptions
+            {
+                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
+            };
+#if DirectML
             var factory1 = new Factory1();
             int deviceId = 0;
             Adapter1? selectedAdapter = null;
@@ -81,11 +80,8 @@ namespace SentenceTransformerPlayground
                 }
             }
 
-            var sessionOptions = new SessionOptions
-            {
-                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
-            };
             sessionOptions.AppendExecutionProvider_DML(deviceId);
+#endif
             _inferenceSession = new InferenceSession($@"{modelDir}\model.onnx", sessionOptions);
         }
 
@@ -266,7 +262,7 @@ namespace SentenceTransformerPlayground
 
                     contents.RemoveAt(i);
                     contents.InsertRange(i, contentChunks);
-                    i+= contentChunks.Count - 1;
+                    i += contentChunks.Count - 1;
                 }
 
                 _content = contents.ToList();
@@ -353,29 +349,74 @@ namespace SentenceTransformerPlayground
                 return;
             }
 
-            this.DispatcherQueue.TryEnqueue(async () =>
+            DispatcherQueue.TryEnqueue(async () =>
             {
-                var searchVector = await GetEmbeddingsAsync(SearchTextBox.Text);
-                var ranking = CalculateRanking(searchVector);
-                List<TextChunk> contents = new List<TextChunk>();
-                var top = 5;
-                var range = 3;
-                for (int i = 0; i < top; i++)
-                {
-                    var indexMin = Math.Max(0, ranking[i] - range);
-                    var indexMax = Math.Min(indexMin + range, _content.Count);
-                    contents.AddRange(_content.Skip(indexMin).Take(indexMax - indexMin).ToList());
-                }
+                List<TextChunk> contents = await Search(SearchTextBox.Text);
 
-                FoundSentenceTextBlock.Text = "Relevant Sentences: " + string.Join(Environment.NewLine, contents.Distinct().Select(x => x.Text));
                 foreach (var content in contents)
                 {
                     Debug.WriteLine($"Page: {content.Page}");
                     Debug.WriteLine($"Text: {content.Text}");
                 }
+                FoundSentenceTextBlock.Text = "Relevant Sentences: " + string.Join(Environment.NewLine, contents.Distinct().Select(x => x.Text));
             });
 
             // handle search
+        }
+
+        private async Task<List<TextChunk>> Search(string searchTerm, int top = 5, int range = 3)
+        {
+            List<TextChunk> contents = new();
+            if (_embeddings == null || _content == null)
+            {
+                return contents;
+            }
+
+            var searchVector = await GetEmbeddingsAsync(searchTerm);
+            var ranking = CalculateRanking(searchVector);
+
+            for (int i = 0; i < top; i++)
+            {
+                var indexMin = Math.Max(0, ranking[i] - range);
+                var indexMax = Math.Min(indexMin + range, _content.Count);
+                contents.AddRange(_content.Skip(indexMin).Take(indexMax - indexMin).ToList());
+            }
+
+            return contents;
+        }
+        private async void Button_Click(object sender, RoutedEventArgs e)
+        {
+            var prompt = """
+<|system|>
+You are a helpful assistant helping answer questions about this information:
+""";
+            
+            List<TextChunk> contents = await Search(SearchTextBox.Text, 1, 1);
+            prompt += string.Join(Environment.NewLine, contents.Distinct().Select(FormatEntry));
+
+            prompt += $"""
+<|end|>
+<|user|>
+{SearchTextBox.Text}
+<|end|>
+<|assistant|>
+""";
+
+            FoundSentenceTextBlock.Text = "";
+            var fullResult = "";
+            await Task.Run(async () =>
+            {
+                await foreach (var partialResult in SLMOracle.InferStreaming(prompt))
+                {
+                    fullResult += partialResult;
+                    DispatcherQueue.TryEnqueue(() => FoundSentenceTextBlock.Text = fullResult);
+                }
+            });
+        }
+
+        private string FormatEntry(TextChunk x)
+        {
+            return $"Page {x.Page}: {x.Text}" + Environment.NewLine;
         }
     }
 

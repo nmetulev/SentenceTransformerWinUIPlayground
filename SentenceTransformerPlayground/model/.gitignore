@@ -1,2 +1,3 @@
 model.onnx
 vocab.txt
+phi2_int4_cpu_2
