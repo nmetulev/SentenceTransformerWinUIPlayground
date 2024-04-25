@@ -1,5 +1,4 @@
 ﻿using Microsoft.ML.OnnxRuntime;
-using Microsoft.ML.OnnxRuntimeGenAI;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
@@ -10,7 +9,7 @@ using System.Linq;
 using System.IO;
 using VectorDB;
 using BERTTokenizers.Base;
-using System.Runtime.CompilerServices;
+using SharpDX.DXGI;
 
 namespace SentenceTransformerPlayground
 {
@@ -46,7 +45,7 @@ namespace SentenceTransformerPlayground
             {
                 LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
             };
-#if DirectML
+
             var factory1 = new Factory1();
             int deviceId = 0;
             Adapter1? selectedAdapter = null;
@@ -64,7 +63,7 @@ namespace SentenceTransformerPlayground
             }
 
             sessionOptions.AppendExecutionProvider_DML(deviceId);
-#endif
+
             _inferenceSession = new InferenceSession($@"{modelDir}\model.onnx", sessionOptions);
 
             ResourcesLoaded?.Invoke(this, EventArgs.Empty);

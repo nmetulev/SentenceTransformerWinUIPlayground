@@ -135,7 +135,7 @@ namespace SentenceTransformerPlayground
 You are a helpful assistant helping answer questions about this information:
 """;
             
-            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 2, 3);
+            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 1, 1);
             prompt += string.Join(Environment.NewLine, contents.Distinct().Select(c => $"Page {c.Page}: {c.Text}" + Environment.NewLine));
 
             prompt += $"""

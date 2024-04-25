@@ -27,8 +27,7 @@
     <PackageReference Include="BERTTokenizers" Version="1.2.0" />
     <PackageReference Include="libtorch-cpu-win-x64" Version="2.2.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
-    <!--<PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.3" />-->
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.17.3" GeneratePathProperty="True" PrivateAssets="contentfiles;analyzers" ExcludeAssets="build" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.3" PrivateAssets="contentfiles;analyzers" ExcludeAssets="build" />
     <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML" Version="0.2.0-rc4" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240404000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />
@@ -37,14 +36,6 @@
     <PackageReference Include="TorchSharp" Version="0.102.4" />
     <PackageReference Include="Vortice.DXGI" Version="3.5.0" />
     <Manifest Include="$(ApplicationManifest)" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="$(PkgMicrosoft_ML_OnnxRuntime)\runtimes\win-$(Platform)\native\onnxruntime_providers_shared.dll">
-      <Link>onnxruntime_providers_shared.dll</Link>
-		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		<Visible>false</Visible>
-    </None>
   </ItemGroup>
 
   <!-- 
