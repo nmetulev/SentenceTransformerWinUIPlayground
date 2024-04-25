@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid>
+    <Grid Loaded="Grid_Loaded">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"></RowDefinition>
             <RowDefinition Height="Auto"></RowDefinition>
@@ -16,10 +16,10 @@
             <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="50"></RowDefinition>
         </Grid.RowDefinitions>
-        <Button x:Name="IndexPDFButton" Grid.Row="0" Content="Index PDF" Click="IndexPDFButton_Click" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="16"/>
+        <Button x:Name="IndexPDFButton" Grid.Row="0" Content="Index PDF" Click="IndexPDFButton_Click" IsEnabled="False" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="16"/>
         <ProgressBar x:Name="IndexPDFProgressBar" Grid.Row="1" Visibility="Collapsed"/>
-        <TextBox x:Name="SearchTextBox" TextChanged="SearchTextBox_TextChanged" Grid.Row="2"/>
+        <TextBox x:Name="SearchTextBox" Grid.Row="2"/>
         <TextBlock x:Name="FoundSentenceTextBlock" Grid.Row="3" TextWrapping="WrapWholeWords"/>
-        <Button x:Name="AskOracleButton" IsEnabled="False" Content="Click Me" Click="Button_Click" Grid.Row="3" HorizontalAlignment="Right"/>
+        <Button x:Name="AskSLMButton" IsEnabled="False" Content="Click Me" Click="AskSLMButton_Click" Grid.Row="3" HorizontalAlignment="Right"/>
     </Grid>
 </Window>

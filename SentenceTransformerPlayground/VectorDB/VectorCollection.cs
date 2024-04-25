@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,9 +7,6 @@ using System.Threading.Tasks;
 
 namespace VectorDB
 {
-    /// <summary>
-    /// A collection of <see cref="IVectorObject"/>
-    /// </summary>
     public class VectorCollection<T> where T : IVectorObject
     {
         public VectorCollection()
@@ -37,58 +32,83 @@ namespace VectorDB
             return Objects[index];
         }
 
-        /// <summary>
-        /// Find nearest vector by comparing all vectors to the query
-        /// </summary>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        public T FindNearest(float[] query)
+        public int[] CalculateRanking(float[] searchVector)
         {
-            return Objects[FindNearestIndex(query)];
+            float[] scores = new float[Dimensions];
+            int[] indexranks = new int[Dimensions];
+
+            for (int i = 0; i < Dimensions; i++)
+            {
+                var score = CosineSimilarity(Objects[i].Vectors, searchVector);
+                scores[i] = score;
+            }
+
+            var indexedFloats = scores.Select((value, index) => new { Value = value, Index = index })
+              .ToArray();
+
+            // Sort the indexed floats by value in descending order
+            Array.Sort(indexedFloats, (a, b) => b.Value.CompareTo(a.Value));
+
+            // Extract the top k indices
+            indexranks = indexedFloats.Select(item => item.Index).ToArray();
+
+            return indexranks;
         }
 
-        /// <summary>
-        /// Find the index of the nearest vector by comparing all vectors to the query
-        /// </summary>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        public int FindNearestIndex(float[] query)
+        private static float CosineSimilarity(float[] v1, float[] v2)
         {
-            float maxDotProduct = 0;
-            int bestIndex = 0;
-
-            for (int i = 0; i < Objects.Count; i++)
+            if (v1.Length != v2.Length)
             {
-                float dotProd = VectorMath.DotProduct(Objects[i].GetVector(), query);
-                if (dotProd > maxDotProduct)
-                {
-                    maxDotProduct = dotProd;
-                    bestIndex = i;
-                }
+                throw new ArgumentException("Vectors must have the same length.");
             }
-            return bestIndex;
+            //int size = v1.Length;
+            //float m1 = Magnitude(v1);
+            //float m2 = Magnitude(v2);
+            /*                        var normalizedList1 = raw1.Select(o => o / m1).ToArray();
+                                    var normalizedList2 = raw2.Select(o => o / m2).ToArray();
+            */
+            /*// Vectors should already be normalized.
+            if (Math.Abs(m1 - m2) > 0.4f || Math.Abs(m1 - 1.0f) > 0.4f)
+            {
+                throw new InvalidOperationException("Vectors are not normalized.");
+            }*/
+            return DotProduct(v1, v2);
+        }
+
+        public static float CheckOverflow(double x)
+        {
+            if (x >= double.MaxValue)
+            {
+                throw new OverflowException("operation caused overflow");
+            }
+            return (float)x;
         }
 
         public static float DotProduct(float[] a, float[] b)
         {
-            float sum = 0;
+            float result = 0.0f;
             for (int i = 0; i < a.Length; i++)
             {
-                sum += a[i] * b[i];
+                result = CheckOverflow(result + CheckOverflow(a[i] * b[i]));
             }
+            return result;
+        }
 
-            return sum;
+        public static float Magnitude(float[] v)
+        {
+            float result = 0.0f;
+            for (int i = 0; i < v.Length; i++)
+            {
+                result = CheckOverflow(result + CheckOverflow(v[i] * v[i]));
+            }
+            return (float)Math.Sqrt(result);
         }
 
         public async Task SaveToDiskAsync(string fileName)
         {
             using var db = new VectorDBContext<T>(fileName);
-            if (File.Exists(db.DbPath))
-            {
-                File.Delete(db.DbPath);
-            }
+
+            await db.Database.EnsureDeletedAsync();
 
             await db.Database.EnsureCreatedAsync();
 
@@ -104,7 +124,7 @@ namespace VectorDB
             try
             {
                 return await db.VectorCollections
-                    .Include(v => v.Objects).FirstAsync();
+                    .Include(v => v.Objects).FirstAsync().ConfigureAwait(false);
             }
             catch (Exception)
             {
@@ -113,17 +133,15 @@ namespace VectorDB
         }
     }
 
-    public class VectorDBContext<T> : DbContext where T : IVectorObject
+    public class VectorDBContext<T>(string fileName) : DbContext where T : IVectorObject
     {
         public DbSet<VectorCollection<T>> VectorCollections { get; set; }
 
-        public string DbPath { get; }
-
-        public VectorDBContext(string fileName)
+        public static string DbPath(string fileName)
         {
-            DbPath = Path.Join(Windows.Storage.ApplicationData.Current.LocalFolder.Path, fileName);
+            return Path.Join(Windows.Storage.ApplicationData.Current.LocalFolder.Path, fileName);
         }
 
-        protected override void OnConfiguring(DbContextOptionsBuilder options) => options.UseSqlite($"Data Source={DbPath}");
+        protected override void OnConfiguring(DbContextOptionsBuilder options) => options.UseSqlite($"Data Source={DbPath(fileName)}");
     }
 }

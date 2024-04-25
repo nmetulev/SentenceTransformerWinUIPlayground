@@ -1,29 +1,29 @@
-﻿#nullable enable
-
-using System;
+﻿using System;
 using Microsoft.ML.OnnxRuntimeGenAI;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SentenceTransformerPlayground
 {
-    public class SLMOracle : IDisposable
+    public class SLMRunner : IDisposable
     {
-        private string ModelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model", "Phi-3-mini-4k-instruct-onnx\\cpu-int4-rtn-block-32");
+        private readonly string ModelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model", "Phi-3-mini-4k-instruct-onnx\\directml-int4-awq-block-128");
 
-        private Model model;
-        private Tokenizer tokenizer;
-        public event EventHandler ModelLoaded;
+        private Model? model = null;
+        private Tokenizer? tokenizer = null;
+        public event EventHandler? ModelLoaded = null;
 
+        [MemberNotNullWhen(true, nameof(model), nameof(tokenizer))]
         public bool IsReady => model != null && tokenizer != null;
 
         public void Dispose()
         {
-            model.Dispose();
-            tokenizer.Dispose();
+            model?.Dispose();
+            tokenizer?.Dispose();
         }
 
         public string Infer(string prompt)
@@ -46,7 +46,7 @@ namespace SentenceTransformerPlayground
             return outputString;
         }
 
-        public async IAsyncEnumerable<string> InferStreaming(string prompt)
+        public IEnumerable<string> InferStreaming(string prompt)
         {
             if (!IsReady)
             {
@@ -57,12 +57,13 @@ namespace SentenceTransformerPlayground
 
             var sequences = tokenizer.Encode(prompt);
 
-            generatorParams.SetSearchOption("max_length", 2048);
+            //generatorParams.SetSearchOption("max_length", 2048);
             generatorParams.SetInputSequences(sequences);
+            generatorParams.TryGraphCaptureWithMaxBatchSize(1);
 
             using var tokenizerStream = tokenizer.CreateStream();
             using var generator = new Generator(model, generatorParams);
-            StringBuilder stringBuilder = new StringBuilder();
+            StringBuilder stringBuilder = new();
             while (!generator.IsDone())
             {
                 generator.ComputeLogits();
