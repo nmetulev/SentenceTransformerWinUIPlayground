@@ -10,16 +10,23 @@
 
     <Grid Loaded="Grid_Loaded">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="*"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="50"></RowDefinition>
         </Grid.RowDefinitions>
-        <Button x:Name="IndexPDFButton" Grid.Row="0" Content="Index PDF" Click="IndexPDFButton_Click" IsEnabled="False" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="16"/>
-        <ProgressBar x:Name="IndexPDFProgressBar" Grid.Row="1" Visibility="Collapsed"/>
-        <TextBox x:Name="SearchTextBox" Grid.Row="2"/>
-        <TextBlock x:Name="FoundSentenceTextBlock" Grid.Row="3" TextWrapping="WrapWholeWords"/>
-        <Button x:Name="AskSLMButton" IsEnabled="False" Content="Click Me" Click="AskSLMButton_Click" Grid.Row="3" HorizontalAlignment="Right"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="0" Padding="16" Grid.ColumnSpan="2">
+            <Button x:Name="IndexPDFButton" Content="Index PDF" Click="IndexPDFButton_Click" IsEnabled="False"/>
+        </StackPanel>
+        <ProgressBar x:Name="IndexPDFProgressBar" Grid.Row="1" Visibility="Collapsed" Grid.ColumnSpan="2"/>
+        <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0"/>
+        <Button x:Name="AskSLMButton" IsEnabled="False" Content="Click Me" Click="AskSLMButton_Click" Grid.Row="2" Grid.Column="1" Margin="8"/>
+        <ScrollView Grid.Row="3">
+            <TextBlock x:Name="FoundSentenceTextBlock" TextWrapping="NoWrap"/>
+        </ScrollView>
     </Grid>
 </Window>
