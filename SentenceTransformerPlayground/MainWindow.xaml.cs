@@ -33,10 +33,10 @@ namespace SentenceTransformerPlayground
 
             Closed += (sender, e) =>
             {
-                SLMRunner?.Dispose();
-                RAGService?.Dispose();
                 cts?.Cancel();
                 cts = null;
+                SLMRunner?.Dispose();
+                RAGService?.Dispose();
             };
 
             InitializeComponent();
@@ -164,13 +164,25 @@ namespace SentenceTransformerPlayground
                 IndexPDFProgressTextBlock.Text = $"Indexing PDF... {progress:P0} ({remaining})";
             }
 
+            if (cts != null)
+            {
+                cts.Cancel();
+                cts = null;
+                AskSLMButton.Content = "Answer";
+                return;
+            }
+
+            cts = new CancellationTokenSource();
+
             await RAGService.InitializeAsync(contents, (sender, progress) =>
             {
                 DispatcherQueue.TryEnqueue(() =>
                 {
                     UpdateProgress(progress);
                 });
-            });
+            }, cts.Token);
+
+            cts = null;
 
             DispatcherQueue.TryEnqueue(() =>
             {

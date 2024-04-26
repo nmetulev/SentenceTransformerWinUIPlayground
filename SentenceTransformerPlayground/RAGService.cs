@@ -241,13 +241,25 @@ namespace SentenceTransformerPlayground
                 }
             }, ct).ConfigureAwait(false);
 
-            _embeddings = new VectorCollection<TextChunk>(_content.Count, _content);
-            await _embeddings.SaveToDiskAsync("vectors.vec", ct).ConfigureAwait(false);
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
 
-            stopwatch.Stop();
-            Debug.WriteLine($"Indexing took {stopwatch.ElapsedMilliseconds} ms");
+            try
+            {
+                _embeddings = new VectorCollection<TextChunk>(_content.Count, _content);
+                await _embeddings.SaveToDiskAsync("vectors.vec", ct).ConfigureAwait(false);
 
-            ResourcesLoaded?.Invoke(this, EventArgs.Empty);
+                stopwatch.Stop();
+                Debug.WriteLine($"Indexing took {stopwatch.ElapsedMilliseconds} ms");
+
+                ResourcesLoaded?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e.Message);
+            }
         }
 
         public void Dispose()
