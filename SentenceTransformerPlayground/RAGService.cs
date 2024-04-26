@@ -10,6 +10,7 @@ using System.IO;
 using VectorDB;
 using BERTTokenizers.Base;
 using SharpDX.DXGI;
+using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace SentenceTransformerPlayground
 {
@@ -70,18 +71,18 @@ namespace SentenceTransformerPlayground
         }
 
         // TODO: run multiple sentences at once
-        private ValueTask<float[]> GetEmbeddingsAsync(params string[] sentences)
+        private async Task<float[]> GetEmbeddingsAsync(string sentence)
         {
             if (!IsModelReady)
             {
-                return ValueTask.FromResult(Array.Empty<float>());
+                return Array.Empty<float>();
             }
 
             tokenizer ??= new MyTokenizer($@"{modelDir}\vocab.txt");
 
-            var tokensCount = tokenizer.Tokenize(sentences).Count;
+            var tokensCount = tokenizer.Tokenize(sentence).Count;
 
-            var encoded = tokenizer.Encode(tokensCount, sentences);
+            var encoded = tokenizer.Encode(tokensCount, sentence);
 
             var input = new ModelInput
             {
@@ -94,42 +95,58 @@ namespace SentenceTransformerPlayground
 
             // Create input tensors over the input data.
             using var inputIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.InputIds,
-                  [sentences.Length, input.InputIds.Length]);
+                  [1, input.InputIds.Length]);
 
             using var attMaskOrtValue = OrtValue.CreateTensorValueFromMemory(input.AttentionMask,
-                  [sentences.Length, input.AttentionMask.Length]);
+                  [1, input.AttentionMask.Length]);
 
             using var typeIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.TokenTypeIds,
-                  [sentences.Length, input.TokenTypeIds.Length]);
+                  [1, input.TokenTypeIds.Length]);
 
-            var inputs = new Dictionary<string, OrtValue>
+            var inputNames = new List<string>
             {
-                { "input_ids", inputIdsOrtValue },
-                { "attention_mask", attMaskOrtValue },
-                { "token_type_ids", typeIdsOrtValue }
+                "input_ids",
+                "attention_mask",
+                "token_type_ids"
             };
+
+            var inputs = new List<OrtValue>
+            {
+                { inputIdsOrtValue },
+                { attMaskOrtValue },
+                { typeIdsOrtValue }
+            };
+
+            var outputValues = new List<OrtValue> { 
+                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
+                        TensorElementType.Float, [1, input.InputIds.Length, 384]),
+                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
+                        TensorElementType.Float, [1, 384])};
 
             try
             {
-                using var output = _inferenceSession.Run(runOptions, inputs, _inferenceSession.OutputNames);
-                var data = output.ToList()[0].GetTensorDataAsSpan<float>().ToArray();
+                var output = await _inferenceSession.RunAsync(runOptions, inputNames, inputs, _inferenceSession.OutputNames, outputValues);
 
-                var sentence_embeddings = MeanPooling(data, input.AttentionMask, sentences.Length, input.AttentionMask.Length, 384);
+                var firstElement = output.ToList()[0];
+                var data = firstElement.GetTensorDataAsSpan<float>().ToArray();
+                var typeAndShape = firstElement.GetTensorTypeAndShape();
+
+                var sentence_embeddings = MeanPooling(data, input.AttentionMask, typeAndShape.Shape);
                 var denom = sentence_embeddings.norm(1, true, 2).clamp_min(1e-12).expand_as(sentence_embeddings);
                 var results = sentence_embeddings / denom;
-                return ValueTask.FromResult(results.data<float>().ToArray());
+                return results.data<float>().ToArray();
             }
             catch (Exception e)
             {
                 Debug.WriteLine(e.Message);
-                return ValueTask.FromResult(Array.Empty<float>());
+                return Array.Empty<float>();
             }
         }
 
-        public static torch.Tensor MeanPooling(float[] embeddings, long[] attentionMask, long batchSize, long sequence, int hiddenSize)
+        public static torch.Tensor MeanPooling(float[] embeddings, long[] attentionMask, long[] shape)
         {
-            var tokenEmbeddings = torch.tensor(embeddings, [batchSize, sequence, hiddenSize]);
-            var attentionMaskExpanded = torch.tensor(attentionMask, [batchSize, sequence]).unsqueeze(-1).expand(tokenEmbeddings.shape).@float();
+            var tokenEmbeddings = torch.tensor(embeddings, shape);
+            var attentionMaskExpanded = torch.tensor(attentionMask, [shape[0], shape[1]]).unsqueeze(-1).expand(tokenEmbeddings.shape).@float();
 
             var sumEmbeddings = (tokenEmbeddings * attentionMaskExpanded).sum(new[] { 1L });
             var sumMask = attentionMaskExpanded.sum(new[] { 1L }).clamp(1e-9, float.MaxValue);
