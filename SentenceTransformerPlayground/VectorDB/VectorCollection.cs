@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace VectorDB
@@ -104,27 +105,27 @@ namespace VectorDB
             return (float)Math.Sqrt(result);
         }
 
-        public async Task SaveToDiskAsync(string fileName)
+        public async Task SaveToDiskAsync(string fileName, CancellationToken ct = default)
         {
             using var db = new VectorDBContext<T>(fileName);
 
-            await db.Database.EnsureDeletedAsync();
+            await db.Database.EnsureDeletedAsync(ct);
 
-            await db.Database.EnsureCreatedAsync();
+            await db.Database.EnsureCreatedAsync(ct);
 
-            await db.AddAsync(this);
+            await db.AddAsync(this, ct);
 
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(ct);
         }
 
-        public static async Task<VectorCollection<T>?> LoadFromDiskAsync(string fileName)
+        public static async Task<VectorCollection<T>?> LoadFromDiskAsync(string fileName, CancellationToken ct = default)
         {
             using var db = new VectorDBContext<T>(fileName);
 
             try
             {
                 return await db.VectorCollections
-                    .Include(v => v.Objects).FirstAsync().ConfigureAwait(false);
+                    .Include(v => v.Objects).FirstAsync(ct).ConfigureAwait(false);
             }
             catch (Exception)
             {

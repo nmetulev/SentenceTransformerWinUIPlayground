@@ -6,6 +6,7 @@
     xmlns:local="using:SentenceTransformerPlayground"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="RAG with Phi 3"
     mc:Ignorable="d">
 
     <Grid Loaded="Grid_Loaded">
@@ -22,11 +23,19 @@
         <StackPanel Grid.Row="0" Padding="16" Grid.ColumnSpan="2">
             <Button x:Name="IndexPDFButton" Content="Index PDF" Click="IndexPDFButton_Click" IsEnabled="False"/>
         </StackPanel>
-        <ProgressBar x:Name="IndexPDFProgressBar" Grid.Row="1" Visibility="Collapsed" Grid.ColumnSpan="2"/>
+        <StackPanel x:Name="IndexPDFProgressStackPanel" Visibility="Collapsed" Orientation="Vertical" Grid.Row="1" Grid.ColumnSpan="2" Padding="4">
+            <TextBlock x:Name="IndexPDFProgressTextBlock" Margin="0,0,0,4"/>
+            <ProgressBar x:Name="IndexPDFProgressBar"/>
+        </StackPanel>
         <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0"/>
-        <Button x:Name="AskSLMButton" IsEnabled="False" Content="Click Me" Click="AskSLMButton_Click" Grid.Row="2" Grid.Column="1" Margin="8"/>
-        <ScrollView Grid.Row="3">
-            <TextBlock x:Name="FoundSentenceTextBlock" TextWrapping="NoWrap"/>
+        <Button x:Name="AskSLMButton" IsEnabled="False" Content="Answer" Click="AskSLMButton_Click" Grid.Row="2" Grid.Column="1" Margin="8"/>
+        <ScrollView Grid.Row="3" Grid.ColumnSpan="2" Padding="16">
+            <TextBlock TextWrapping="WrapWholeWords">
+                <Run x:Name="PagesUsedRun"/>
+                <LineBreak/>
+                <LineBreak/>
+                <Run x:Name="AnswerRun"/>
+            </TextBlock>
         </ScrollView>
     </Grid>
 </Window>

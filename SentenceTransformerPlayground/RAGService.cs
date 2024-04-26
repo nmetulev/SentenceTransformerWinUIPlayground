@@ -11,10 +11,11 @@ using VectorDB;
 using BERTTokenizers.Base;
 using SharpDX.DXGI;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using System.Threading;
 
 namespace SentenceTransformerPlayground
 {
-    public class RAGService
+    public class RAGService : IDisposable
     {
         // model from https://huggingface.co/optimum/all-MiniLM-L6-v2
         private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model");
@@ -47,15 +48,39 @@ namespace SentenceTransformerPlayground
                 LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
             };
 
+            int deviceId = GetBestDeviceId();
+
+            sessionOptions.AppendExecutionProvider_DML(deviceId);
+
+            _inferenceSession = new InferenceSession($@"{modelDir}\model.onnx", sessionOptions);
+
+            ResourcesLoaded?.Invoke(this, EventArgs.Empty);
+        }
+
+        public static List<Adapter1> GetAdapters()
+        {
             var factory1 = new Factory1();
-            int deviceId = 0;
-            Adapter1? selectedAdapter = null;
+            var adapters = new List<Adapter1>();
             for (int i = 0; i < factory1.GetAdapterCount1(); i++)
             {
-                Adapter1 adapter = factory1.GetAdapter1(i);
+                adapters.Add(factory1.GetAdapter1(i));
+            }
+
+            return adapters;
+        }
+
+        private static int GetBestDeviceId()
+        {
+            int deviceId = 0;
+            Adapter1? selectedAdapter = null;
+            List<Adapter1> list = GetAdapters();
+            for (int i = 0; i < list.Count; i++)
+            {
+                Adapter1? adapter = list[i];
                 Debug.WriteLine($"Adapter {i}:");
                 Debug.WriteLine($"\tDescription: {adapter.Description1.Description}");
                 Debug.WriteLine($"\tDedicatedVideoMemory: {(long)adapter.Description1.DedicatedVideoMemory / 1000000000}GB");
+                Debug.WriteLine($"\tSharedSystemMemory: {(long)adapter.Description1.SharedSystemMemory / 1000000000}GB");
                 if (selectedAdapter == null || (long)adapter.Description1.DedicatedVideoMemory > (long)selectedAdapter.Description1.DedicatedVideoMemory)
                 {
                     selectedAdapter = adapter;
@@ -63,11 +88,7 @@ namespace SentenceTransformerPlayground
                 }
             }
 
-            sessionOptions.AppendExecutionProvider_DML(deviceId);
-
-            _inferenceSession = new InferenceSession($@"{modelDir}\model.onnx", sessionOptions);
-
-            ResourcesLoaded?.Invoke(this, EventArgs.Empty);
+            return deviceId;
         }
 
         // TODO: run multiple sentences at once
@@ -175,11 +196,11 @@ namespace SentenceTransformerPlayground
             return contents;
         }
 
-        public async Task InitializeAsync(List<TextChunk>? contents = null, EventHandler<float>? progress = null)
+        public async Task InitializeAsync(List<TextChunk>? contents = null, EventHandler<float>? progress = null, CancellationToken ct = default)
         {
             if (contents == null)
             {
-                _embeddings = await VectorCollection<TextChunk>.LoadFromDiskAsync("vectors.vec").ConfigureAwait(false);
+                _embeddings = await VectorCollection<TextChunk>.LoadFromDiskAsync("vectors.vec", ct).ConfigureAwait(false);
                 if (_embeddings != null)
                 {
                     _content = _embeddings.Objects.ToList();
@@ -187,7 +208,7 @@ namespace SentenceTransformerPlayground
 
                 ResourcesLoaded?.Invoke(this, EventArgs.Empty);
 
-                await Task.Run(InitModel).ConfigureAwait(false);
+                await Task.Run(InitModel, ct).ConfigureAwait(false);
 
                 return;
             }
@@ -196,12 +217,12 @@ namespace SentenceTransformerPlayground
 
             if (_content.Count == 0)
             {
-                await Task.Run(InitModel).ConfigureAwait(false);
+                await Task.Run(InitModel, ct).ConfigureAwait(false);
 
                 return;
             }
 
-            await Task.Run(InitModel).ConfigureAwait(false);
+            await Task.Run(InitModel, ct).ConfigureAwait(false);
 
             Stopwatch stopwatch = Stopwatch.StartNew();
 
@@ -209,19 +230,29 @@ namespace SentenceTransformerPlayground
             {
                 for (int i = 0; i < _content.Count; i++)
                 {
+                    if (ct.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    
                     _content[i].Vectors = await GetEmbeddingsAsync(_content[i].Text!).ConfigureAwait(false);
 
                     progress?.Invoke(this, (float)i / _content.Count);
                 }
-            }).ConfigureAwait(false);
+            }, ct).ConfigureAwait(false);
 
             _embeddings = new VectorCollection<TextChunk>(_content.Count, _content);
-            await _embeddings.SaveToDiskAsync("vectors.vec").ConfigureAwait(false);
+            await _embeddings.SaveToDiskAsync("vectors.vec", ct).ConfigureAwait(false);
 
             stopwatch.Stop();
             Debug.WriteLine($"Indexing took {stopwatch.ElapsedMilliseconds} ms");
 
             ResourcesLoaded?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void Dispose()
+        {
+            _inferenceSession?.Dispose();
         }
     }
 
