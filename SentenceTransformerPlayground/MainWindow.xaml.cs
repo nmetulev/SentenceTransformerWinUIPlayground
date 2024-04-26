@@ -14,7 +14,7 @@ namespace SentenceTransformerPlayground
 {
     public sealed partial class MainWindow : Window
     {
-        private readonly SLMRunner SLMRunner;
+        private readonly SLMRunnerLlamaSharp SLMRunner;
         private readonly RAGService RAGService;
 
         [GeneratedRegex(@"[\u0000-\u001F\u007F-\uFFFF]")]
@@ -22,7 +22,7 @@ namespace SentenceTransformerPlayground
 
         public MainWindow()
         {
-            SLMRunner = new SLMRunner();
+            SLMRunner = new SLMRunnerLlamaSharp();
             SLMRunner.ModelLoaded += (sender, e) => DispatcherQueue.TryEnqueue(() => CheckIfReady());
 
             RAGService = new RAGService();
@@ -135,7 +135,7 @@ namespace SentenceTransformerPlayground
 You are a helpful assistant helping answer questions about this information:
 """;
             
-            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 1, 1);
+            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 2, 3);
             prompt += string.Join(Environment.NewLine, contents.Distinct().Select(c => $"Page {c.Page}: {c.Text}" + Environment.NewLine));
 
             prompt += $"""
@@ -148,9 +148,9 @@ You are a helpful assistant helping answer questions about this information:
 
             FoundSentenceTextBlock.Text = "";
             var fullResult = "";
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
-                foreach (var partialResult in SLMRunner.InferStreaming(prompt))
+                await foreach (var partialResult in SLMRunner.InferStreaming(prompt))
                 {
                     fullResult += partialResult;
                     DispatcherQueue.TryEnqueue(() => FoundSentenceTextBlock.Text = fullResult);
