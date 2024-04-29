@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System;
-using TorchSharp;
 using System.Linq;
 using System.IO;
 using VectorDB;
@@ -13,6 +12,7 @@ using SharpDX.DXGI;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System.Threading;
 using System.Text.RegularExpressions;
+using System.Numerics;
 
 namespace SentenceTransformerPlayground
 {
@@ -154,9 +154,9 @@ namespace SentenceTransformerPlayground
                 var typeAndShape = firstElement.GetTensorTypeAndShape();
 
                 var sentence_embeddings = MeanPooling(data, input.AttentionMask, typeAndShape.Shape);
-                var denom = sentence_embeddings.norm(1, true, 2).clamp_min(1e-12).expand_as(sentence_embeddings);
-                var results = sentence_embeddings / denom;
-                var resultArray = results.data<float>().ToArray();
+
+                var resultArray = NormalizeAndDivide(sentence_embeddings, typeAndShape.Shape);
+
                 return Enumerable.Chunk(resultArray, resultArray.Length / sentences.Length).ToArray();
             }
             catch (Exception e)
@@ -166,15 +166,85 @@ namespace SentenceTransformerPlayground
             }
         }
 
-        public static torch.Tensor MeanPooling(float[] embeddings, long[] attentionMask, long[] shape)
+        public static float[] MeanPooling(float[] embeddings, long[] attentionMask, long[] shape)
         {
-            var tokenEmbeddings = torch.tensor(embeddings, shape);
-            var attentionMaskExpanded = torch.tensor(attentionMask, [shape[0], shape[1]]).unsqueeze(-1).expand(tokenEmbeddings.shape).@float();
+            long batchSize = shape[0];
+            int sequenceLength = (int)shape[1];
+            int embeddingSize = (int)shape[2];
+            float[] result = new float[batchSize * embeddingSize];
 
-            var sumEmbeddings = (tokenEmbeddings * attentionMaskExpanded).sum(new[] { 1L });
-            var sumMask = attentionMaskExpanded.sum(new[] { 1L }).clamp(1e-9, float.MaxValue);
+            for (int batch = 0; batch < batchSize; batch++)
+            {
+                Vector<float> sumMask = Vector<float>.Zero;
+                Vector<float>[] sumEmbeddings = new Vector<float>[embeddingSize];
 
-            return sumEmbeddings / sumMask;
+                for (int i = 0; i < embeddingSize; i++)
+                    sumEmbeddings[i] = Vector<float>.Zero;
+
+                for (int seq = 0; seq < sequenceLength; seq++)
+                {
+                    long mask = attentionMask[batch * sequenceLength + seq];
+                    if (mask == 0)
+                        continue;
+
+                    for (int emb = 0; emb < embeddingSize; emb++)
+                    {
+                        int index = batch * sequenceLength * embeddingSize + seq * embeddingSize + emb;
+                        float value = embeddings[index];
+                        sumEmbeddings[emb] += new Vector<float>(value);
+                    }
+                    sumMask += new Vector<float>(1);
+                }
+
+                for (int emb = 0; emb < embeddingSize; emb++)
+                {
+                    float sum = Vector.Dot(sumEmbeddings[emb], Vector<float>.One);
+                    float maskSum = Vector.Dot(sumMask, Vector<float>.One);
+                    result[batch * embeddingSize + emb] = sum / maskSum;
+                }
+            }
+
+            return result;
+        }
+
+        public static float[] NormalizeAndDivide(float[] sentenceEmbeddings, long[] shape)
+        {
+            long numSentences = shape[0];
+            int embeddingSize = (int)shape[2];
+
+            float[] result = new float[sentenceEmbeddings.Length];
+            int vectorSize = Vector<float>.Count;
+
+            // Compute Frobenius (L2) norms
+            float[] norms = new float[numSentences];
+
+            for (int i = 0; i < numSentences; i++)
+            {
+                Vector<float> sumSquares = Vector<float>.Zero;
+                for (int j = 0; j < embeddingSize; j += vectorSize)
+                {
+                    int index = i * embeddingSize + j;
+                    Vector<float> vec = new Vector<float>(sentenceEmbeddings, index);
+                    sumSquares += vec * vec; // Element-wise squaring and summing
+                }
+                norms[i] = (float)Math.Sqrt(Vector.Dot(sumSquares, Vector<float>.One)); // Take square root of sum of squares
+                norms[i] = Math.Max(norms[i], 1e-12f); // Clamping to avoid division by zero
+            }
+
+            // Normalize and divide
+            for (int i = 0; i < numSentences; i++)
+            {
+                float norm = norms[i];
+                for (int j = 0; j < embeddingSize; j += vectorSize)
+                {
+                    int index = i * embeddingSize + j;
+                    Vector<float> vec = new Vector<float>(sentenceEmbeddings, index);
+                    Vector<float> normalizedVec = vec / new Vector<float>(norm);
+                    normalizedVec.CopyTo(result, index);
+                }
+            }
+
+            return result;
         }
 
         public async Task<List<TextChunk>> Search(string searchTerm, int top = 5, int range = 3)
