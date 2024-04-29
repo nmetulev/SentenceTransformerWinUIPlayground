@@ -12,6 +12,8 @@ using BERTTokenizers.Base;
 using SharpDX.DXGI;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System.Threading;
+using System.Text.RegularExpressions;
+using Microsoft.ML.OnnxRuntimeGenAI;
 
 namespace SentenceTransformerPlayground
 {
@@ -92,37 +94,37 @@ namespace SentenceTransformerPlayground
         }
 
         // TODO: run multiple sentences at once
-        private async Task<float[]> GetEmbeddingsAsync(string sentence)
+        private async Task<float[][]> GetEmbeddingsAsync(params string[] sentences)
         {
             if (!IsModelReady)
             {
-                return Array.Empty<float>();
+                return Array.Empty<float[]>();
             }
 
             tokenizer ??= new MyTokenizer($@"{modelDir}\vocab.txt");
 
-            var tokensCount = tokenizer.Tokenize(sentence).Count;
+            sentences = ["abc", "abcdef", "def"];
 
-            var encoded = tokenizer.Encode(tokensCount, sentence);
+            var encoded = tokenizer.CustomEncode(sentences);
 
             var input = new ModelInput
             {
-                InputIds = encoded.Select(t => t.InputIds).ToArray(),
-                AttentionMask = encoded.Select(t => t.AttentionMask).ToArray(),
-                TokenTypeIds = encoded.Select(t => t.TokenTypeIds).ToArray(),
+                InputIds = encoded.SelectMany(t => t.Select(t2 => t2.InputIds)).ToArray(),
+                TokenTypeIds = encoded.SelectMany(t => t.Select(t2 => t2.TokenTypeIds)).ToArray(),
+                AttentionMask = encoded.SelectMany(t => t.Select(t2 => t2.AttentionMask)).ToArray(),
             };
 
             var runOptions = new RunOptions();
 
             // Create input tensors over the input data.
             using var inputIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.InputIds,
-                  [1, input.InputIds.Length]);
+                  [sentences.Length, input.InputIds.Length]);
 
             using var attMaskOrtValue = OrtValue.CreateTensorValueFromMemory(input.AttentionMask,
-                  [1, input.AttentionMask.Length]);
+                  [sentences.Length, input.AttentionMask.Length]);
 
             using var typeIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.TokenTypeIds,
-                  [1, input.TokenTypeIds.Length]);
+                  [sentences.Length, input.TokenTypeIds.Length]);
 
             var inputNames = new List<string>
             {
@@ -140,9 +142,7 @@ namespace SentenceTransformerPlayground
 
             var outputValues = new List<OrtValue> { 
                     OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [1, input.InputIds.Length, 384]),
-                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [1, 384])};
+                        TensorElementType.Float, [sentences.Length, input.InputIds.Length, 768])};
 
             try
             {
@@ -155,12 +155,12 @@ namespace SentenceTransformerPlayground
                 var sentence_embeddings = MeanPooling(data, input.AttentionMask, typeAndShape.Shape);
                 var denom = sentence_embeddings.norm(1, true, 2).clamp_min(1e-12).expand_as(sentence_embeddings);
                 var results = sentence_embeddings / denom;
-                return results.data<float>().ToArray();
+                return [results.data<float>().ToArray()];
             }
             catch (Exception e)
             {
                 Debug.WriteLine(e.Message);
-                return Array.Empty<float>();
+                return Array.Empty<float[]>();
             }
         }
 
@@ -183,8 +183,8 @@ namespace SentenceTransformerPlayground
                 return contents;
             }
 
-            var searchVector = await GetEmbeddingsAsync(searchTerm).ConfigureAwait(false);
-            var ranking = _embeddings.CalculateRanking(searchVector);
+            var searchVector = await GetEmbeddingsAsync(searchTerm, searchTerm, searchTerm, searchTerm).ConfigureAwait(false);
+            var ranking = _embeddings.CalculateRanking(searchVector[0]);
 
             for (int i = 0; i < top; i++)
             {
@@ -235,7 +235,7 @@ namespace SentenceTransformerPlayground
                         return;
                     }
                     
-                    _content[i].Vectors = await GetEmbeddingsAsync(_content[i].Text!).ConfigureAwait(false);
+                    _content[i].Vectors = (await GetEmbeddingsAsync(_content[i].Text!).ConfigureAwait(false))[0];
 
                     progress?.Invoke(this, (float)i / _content.Count);
                 }
@@ -279,5 +279,110 @@ namespace SentenceTransformerPlayground
 
     public class MyTokenizer(string vocabPath) : UncasedTokenizer(vocabPath)
     {
+        public IEnumerable<List<(long InputIds, long TokenTypeIds, long AttentionMask)>> CustomEncode(params string[] texts)
+        {
+            int maxLength = texts.Max(s => s.Length);
+
+            foreach (string text in texts)
+            {
+                IEnumerable<string> enumerable = [];
+                enumerable = enumerable.Concat(["[CLS]"]);
+                enumerable = enumerable.Concat(TokenizeSentence(text));
+                enumerable = enumerable.Concat(["[SEP]"]);
+                if (maxLength - text.Length - 1 > 0)
+                {
+                    enumerable = enumerable.Concat(Enumerable.Repeat("[PAD]", maxLength - text.Length - 1));
+                }
+                List<(string, int)> list2 = enumerable.SelectMany(TokenizeSubwords).ToList();
+                IEnumerable<long> second3 = SegmentIndex(list2);
+                List<(string, int, long)> list = list2.Zip<(string, int), long, (string, int, long)>(second3, ((string Token, int VocabularyIndex) tokenindex, long segmentindex) => (tokenindex.Token, tokenindex.VocabularyIndex, segmentindex)).ToList();
+
+                List<long> second = Enumerable.Repeat(0L, list.Count).ToList();
+                long[] first = list.Select<(string, int, long), long>(((string Token, int VocabularyIndex, long SegmentIndex) token) => token.VocabularyIndex).Concat(second).ToArray();
+                long[] second2 = list.Select(((string Token, int VocabularyIndex, long SegmentIndex) token) => token.SegmentIndex).Concat(second).ToArray();
+                yield return (
+                    from x in Enumerable.Zip(second: list.Select(((string Token, int VocabularyIndex, long SegmentIndex) o) => 1L).Concat(second).ToArray(), first: first.Zip(second2, Tuple.Create), resultSelector: (Tuple<long, long> t, long z) => Tuple.Create(t.Item1, t.Item2, z))
+                        select (x.Item1, x.Item2, x.Item3)).ToList();
+            }
+
+            /*
+{'input_ids': tensor(
+[
+[  101,  5925,   102,     0,     0],
+[  101,  5925,  3207,  2546,   102],
+[  101, 13366,   102,     0,     0]]),
+'token_type_ids': tensor(
+[
+[0, 0, 0, 0, 0],
+[0, 0, 0, 0, 0],
+[0, 0, 0, 0, 0]]),
+'attention_mask': tensor(
+[
+[1, 1, 1, 0, 0],
+[1, 1, 1, 1, 1],
+[1, 1, 1, 0, 0]])}
+*/
+        }
+
+        private IEnumerable<(string Token, int VocabularyIndex)> TokenizeSubwords(string word)
+        {
+            if (_vocabularyDict.ContainsKey(word))
+            {
+                return new (string, int)[1] { (word, _vocabularyDict[word]) };
+            }
+
+            List<(string, int)> list = new List<(string, int)>();
+            string text = word;
+            while (!string.IsNullOrEmpty(text) && text.Length > 2)
+            {
+                string text2 = null;
+                int num = text.Length;
+                while (num >= 1)
+                {
+                    string text3 = text.Substring(0, num);
+                    if (!_vocabularyDict.ContainsKey(text3))
+                    {
+                        num--;
+                        continue;
+                    }
+
+                    text2 = text3;
+                    break;
+                }
+
+                if (text2 == null)
+                {
+                    list.Add(("[UNK]", _vocabularyDict["[UNK]"]));
+                    return list;
+                }
+
+                text = new Regex(text2).Replace(text, "##", 1);
+                list.Add((text2, _vocabularyDict[text2]));
+            }
+
+            if (!string.IsNullOrWhiteSpace(word) && !list.Any())
+            {
+                list.Add(("[UNK]", _vocabularyDict["[UNK]"]));
+            }
+
+            return list;
+        }
+
+        private IEnumerable<long> SegmentIndex(List<(string token, int index)> tokens)
+        {
+            int num = 0;
+            List<long> list = new List<long>();
+            foreach (var token in tokens)
+            {
+                string item = token.token;
+                list.Add(num);
+                if (item == "[SEP]")
+                {
+                    num++;
+                }
+            }
+
+            return list;
+        }
     }
 }
