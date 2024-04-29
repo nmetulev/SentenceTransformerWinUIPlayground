@@ -19,7 +19,7 @@ namespace SentenceTransformerPlayground
     public class RAGService : IDisposable
     {
         // model from https://huggingface.co/optimum/all-MiniLM-L6-v2
-        private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model");
+        private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\nomic-embed-text-v1");
         private InferenceSession? _inferenceSession;
         private MyTokenizer? tokenizer = null;
         private List<TextChunk>? _content;
@@ -46,7 +46,7 @@ namespace SentenceTransformerPlayground
 
             var sessionOptions = new SessionOptions
             {
-                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
+                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_VERBOSE
             };
 
             int deviceId = GetBestDeviceId();
@@ -139,9 +139,25 @@ namespace SentenceTransformerPlayground
                 { typeIdsOrtValue }
             };
 
-            var outputValues = new List<OrtValue> { 
+            List<OrtValue> outputValues;
+
+            // for testing purposes only
+            if (modelDir.Contains("nomic"))
+            {
+                outputValues = new List<OrtValue> {
                     OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
                         TensorElementType.Float, [sentences.Length, sequenceLength, 768])};
+            }
+            else
+            {
+                outputValues = new List<OrtValue> {
+                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
+                        TensorElementType.Float, [1, input.InputIds.Length, 384]),
+                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
+                        TensorElementType.Float, [1, 384])};
+            }
+
+            
 
             try
             {
@@ -228,7 +244,7 @@ namespace SentenceTransformerPlayground
 
             await Task.Run(async () =>
             {
-                int chunkSize = 16;
+                int chunkSize = 4;
                 for (int i = 0; i < _content.Count; i += chunkSize)
                 {
                     if (ct.IsCancellationRequested)
