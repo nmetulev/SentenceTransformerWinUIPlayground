@@ -12,6 +12,7 @@ using BERTTokenizers.Base;
 using SharpDX.DXGI;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System.Threading;
+using System.Text.RegularExpressions;
 
 namespace SentenceTransformerPlayground
 {
@@ -91,38 +92,38 @@ namespace SentenceTransformerPlayground
             return deviceId;
         }
 
-        // TODO: run multiple sentences at once
-        private async Task<float[]> GetEmbeddingsAsync(string sentence)
+        private async Task<float[][]> GetEmbeddingsAsync(params string[] sentences)
         {
             if (!IsModelReady)
             {
-                return Array.Empty<float>();
+                return Array.Empty<float[]>();
             }
 
             tokenizer ??= new MyTokenizer($@"{modelDir}\vocab.txt");
 
-            var tokensCount = tokenizer.Tokenize(sentence).Count;
-
-            var encoded = tokenizer.Encode(tokensCount, sentence);
+            var encoded = tokenizer.CustomEncode(sentences);
 
             var input = new ModelInput
             {
                 InputIds = encoded.Select(t => t.InputIds).ToArray(),
-                AttentionMask = encoded.Select(t => t.AttentionMask).ToArray(),
                 TokenTypeIds = encoded.Select(t => t.TokenTypeIds).ToArray(),
+                AttentionMask = encoded.Select(t => t.AttentionMask).ToArray(),
             };
 
             var runOptions = new RunOptions();
 
+            // round up
+            int sequenceLength = input.InputIds.Length / sentences.Length;
+
             // Create input tensors over the input data.
             using var inputIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.InputIds,
-                  [1, input.InputIds.Length]);
+                  [sentences.Length, sequenceLength]);
 
             using var attMaskOrtValue = OrtValue.CreateTensorValueFromMemory(input.AttentionMask,
-                  [1, input.AttentionMask.Length]);
+                  [sentences.Length, sequenceLength]);
 
             using var typeIdsOrtValue = OrtValue.CreateTensorValueFromMemory(input.TokenTypeIds,
-                  [1, input.TokenTypeIds.Length]);
+                  [sentences.Length, sequenceLength]);
 
             var inputNames = new List<string>
             {
@@ -140,9 +141,7 @@ namespace SentenceTransformerPlayground
 
             var outputValues = new List<OrtValue> { 
                     OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [1, input.InputIds.Length, 384]),
-                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [1, 384])};
+                        TensorElementType.Float, [sentences.Length, sequenceLength, 768])};
 
             try
             {
@@ -155,12 +154,13 @@ namespace SentenceTransformerPlayground
                 var sentence_embeddings = MeanPooling(data, input.AttentionMask, typeAndShape.Shape);
                 var denom = sentence_embeddings.norm(1, true, 2).clamp_min(1e-12).expand_as(sentence_embeddings);
                 var results = sentence_embeddings / denom;
-                return results.data<float>().ToArray();
+                var resultArray = results.data<float>().ToArray();
+                return Enumerable.Chunk(resultArray, resultArray.Length / sentences.Length).ToArray();
             }
             catch (Exception e)
             {
                 Debug.WriteLine(e.Message);
-                return Array.Empty<float>();
+                return Array.Empty<float[]>();
             }
         }
 
@@ -184,7 +184,7 @@ namespace SentenceTransformerPlayground
             }
 
             var searchVector = await GetEmbeddingsAsync(searchTerm).ConfigureAwait(false);
-            var ranking = _embeddings.CalculateRanking(searchVector);
+            var ranking = _embeddings.CalculateRanking(searchVector[0]);
 
             for (int i = 0; i < top; i++)
             {
@@ -228,14 +228,19 @@ namespace SentenceTransformerPlayground
 
             await Task.Run(async () =>
             {
-                for (int i = 0; i < _content.Count; i++)
+                int chunkSize = 16;
+                for (int i = 0; i < _content.Count; i += chunkSize)
                 {
                     if (ct.IsCancellationRequested)
                     {
                         return;
                     }
-                    
-                    _content[i].Vectors = await GetEmbeddingsAsync(_content[i].Text!).ConfigureAwait(false);
+                    var chunk = _content.Skip(i).Take(chunkSize).ToList();
+                    var vectors = await GetEmbeddingsAsync(chunk.Select(c => c.Text!).ToArray()).ConfigureAwait(false);
+                    for (int j = 0; j < chunk.Count; j++)
+                    {
+                        chunk[j].Vectors = vectors[j];
+                    }
 
                     progress?.Invoke(this, (float)i / _content.Count);
                 }
@@ -279,5 +284,82 @@ namespace SentenceTransformerPlayground
 
     public class MyTokenizer(string vocabPath) : UncasedTokenizer(vocabPath)
     {
+        public List<(long InputIds, long TokenTypeIds, long AttentionMask)> CustomEncode(params string[] texts)
+        {
+            List<List<int>> list = [];
+            foreach (string text in texts)
+            {
+                List<string> innerList = ["[CLS]"];
+                innerList.AddRange(TokenizeSentence(text));
+                innerList.Add("[SEP]");
+                list.Add(innerList.SelectMany(TokenizeSubwords).Select(s => s.VocabularyIndex).ToList());
+            }
+
+            int maxLength = list.Max(s => s.Count());
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var innerList = list[i];
+                if (maxLength - innerList.Count() > 0)
+                {
+                    list[i] = innerList.Concat(Enumerable.Repeat(0, maxLength - innerList.Count())).ToList();
+                }
+            }
+            List<int> flatList = list.SelectMany(s => s).ToList();
+
+            List<long> second = Enumerable.Repeat(0L, flatList.Count).ToList();
+            List<long> third = AttentionMask(flatList);
+
+            return flatList.Select((t, i) => ((long)t, second[i], third[i])).ToList();
+        }
+
+        private IEnumerable<(string Token, int VocabularyIndex)> TokenizeSubwords(string word)
+        {
+            if (_vocabularyDict.ContainsKey(word))
+            {
+                return new (string, int)[1] { (word, _vocabularyDict[word]) };
+            }
+
+            List<(string, int)> list = new List<(string, int)>();
+            string text = word;
+            while (!string.IsNullOrEmpty(text) && text.Length > 2)
+            {
+                string? text2 = null;
+                int num = text.Length;
+                while (num >= 1)
+                {
+                    string text3 = text.Substring(0, num);
+                    if (!_vocabularyDict.ContainsKey(text3))
+                    {
+                        num--;
+                        continue;
+                    }
+
+                    text2 = text3;
+                    break;
+                }
+
+                if (text2 == null)
+                {
+                    list.Add(("[UNK]", _vocabularyDict["[UNK]"]));
+                    return list;
+                }
+
+                text = new Regex(text2).Replace(text, "##", 1);
+                list.Add((text2, _vocabularyDict[text2]));
+            }
+
+            if (!string.IsNullOrWhiteSpace(word) && !list.Any())
+            {
+                list.Add(("[UNK]", _vocabularyDict["[UNK]"]));
+            }
+
+            return list;
+        }
+
+        private List<long> AttentionMask(List<int> tokens)
+        {
+            return tokens.Select(index => index == 0 ? (long)0 : 1).ToList();
+        }
     }
 }
