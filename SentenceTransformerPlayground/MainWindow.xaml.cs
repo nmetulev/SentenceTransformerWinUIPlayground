@@ -105,7 +105,7 @@ namespace SentenceTransformerPlayground
                 }
             }
 
-            var maxLength = 1024 * 16;
+            var maxLength = 1024;
             for (int i = 0; i < contents.Count; i++)
             {
                 var content = contents[i];

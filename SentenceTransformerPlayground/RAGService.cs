@@ -19,7 +19,8 @@ namespace SentenceTransformerPlayground
     public class RAGService : IDisposable
     {
         // model from https://huggingface.co/optimum/all-MiniLM-L6-v2
-        private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\nomic-embed-text-v1");
+        //private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\nomic-embed-text-v1");
+        private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\all-MiniLM-L6-v2");
         private InferenceSession? _inferenceSession;
         private MyTokenizer? tokenizer = null;
         private List<TextChunk>? _content;
@@ -152,12 +153,10 @@ namespace SentenceTransformerPlayground
             {
                 outputValues = new List<OrtValue> {
                     OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [1, input.InputIds.Length, 384]),
+                        TensorElementType.Float, [sentences.Length, sequenceLength, 384]),
                     OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [1, 384])};
+                        TensorElementType.Float, [sentences.Length, 384])};
             }
-
-            
 
             try
             {
@@ -244,7 +243,7 @@ namespace SentenceTransformerPlayground
 
             await Task.Run(async () =>
             {
-                int chunkSize = 4;
+                int chunkSize = 32;
                 for (int i = 0; i < _content.Count; i += chunkSize)
                 {
                     if (ct.IsCancellationRequested)
