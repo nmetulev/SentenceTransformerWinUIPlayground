@@ -19,7 +19,6 @@ namespace SentenceTransformerPlayground
     public class RAGService : IDisposable
     {
         // model from https://huggingface.co/optimum/all-MiniLM-L6-v2
-        //private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\nomic-embed-text-v1");
         private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\all-MiniLM-L6-v2");
         private InferenceSession? _inferenceSession;
         private MyTokenizer? tokenizer = null;
@@ -140,23 +139,11 @@ namespace SentenceTransformerPlayground
                 { typeIdsOrtValue }
             };
 
-            List<OrtValue> outputValues;
-
-            // for testing purposes only
-            if (modelDir.Contains("nomic"))
-            {
-                outputValues = new List<OrtValue> {
-                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [sentences.Length, sequenceLength, 768])};
-            }
-            else
-            {
-                outputValues = new List<OrtValue> {
-                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [sentences.Length, sequenceLength, 384]),
-                    OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
-                        TensorElementType.Float, [sentences.Length, 384])};
-            }
+            List<OrtValue> outputValues = [
+                OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
+                    TensorElementType.Float, [sentences.Length, sequenceLength, 384]),
+                OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance,
+                    TensorElementType.Float, [sentences.Length, 384])];
 
             try
             {
