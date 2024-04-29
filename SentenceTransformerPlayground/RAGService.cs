@@ -46,7 +46,7 @@ namespace SentenceTransformerPlayground
 
             var sessionOptions = new SessionOptions
             {
-                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_VERBOSE
+                LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
             };
 
             int deviceId = GetBestDeviceId();
