@@ -31,7 +31,7 @@
         <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0"/>
         <Button x:Name="AskSLMButton" IsEnabled="False" Content="Answer" Click="AskSLMButton_Click" Grid.Row="2" Grid.Column="1" Margin="8"/>
         <ScrollView Grid.Row="3" Grid.ColumnSpan="2" Padding="16">
-            <TextBlock TextWrapping="WrapWholeWords">
+            <TextBlock TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True">
                 <Run x:Name="PagesUsedRun"/>
                 <LineBreak/>
                 <LineBreak/>
