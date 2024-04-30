@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,6 +11,7 @@ using UglyToad.PdfPig;
 using VectorDB;
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.Storage.Streams;
 using WinRT.Interop;
 
 namespace SentenceTransformerPlayground
@@ -19,6 +21,8 @@ namespace SentenceTransformerPlayground
         private readonly SLMRunner SLMRunner;
         private readonly RAGService RAGService;
         private CancellationTokenSource? cts;
+        private List<uint>? selectedPages = null;
+        private StorageFile? pdfFile;
 
         [GeneratedRegex(@"[\u0000-\u001F\u007F-\uFFFF]")]
         private static partial Regex MyRegex();
@@ -71,8 +75,8 @@ namespace SentenceTransformerPlayground
 
             picker.FileTypeFilter.Add(".pdf");
 
-            StorageFile file = await picker.PickSingleFileAsync();
-            if (file == null)
+            pdfFile = await picker.PickSingleFileAsync();
+            if (pdfFile == null)
             {
                 IndexPDFButton.IsEnabled = RAGService.IsModelReady;
                 return;
@@ -87,7 +91,7 @@ namespace SentenceTransformerPlayground
             await Task.Delay(1).ConfigureAwait(false);
 
             var contents = new List<TextChunk>();
-            using (PdfDocument document = PdfDocument.Open(file.Path))
+            using (PdfDocument document = PdfDocument.Open(pdfFile.Path))
             {
                 foreach (var page in document.GetPages())
                 {
@@ -224,7 +228,9 @@ You are a helpful assistant helping answer questions about this information:
                 contents = await RAGService.Search(SearchTextBox.Text, 1, 3);
             }
 
-            PagesUsedRun.Text = $"Using page(s) : {string.Join(", ", contents.Select(c => c.Page).Distinct())}";
+            selectedPages = contents.Select(c => (uint)c.Page).Distinct().ToList();
+
+            PagesUsedRun.Text = $"Using page(s) : {string.Join(", ", selectedPages)}";
 
             prompt += string.Join(Environment.NewLine, contents.Distinct().Select(c => $"Page {c.Page}: {c.Text}" + Environment.NewLine));
 
@@ -251,6 +257,41 @@ You are a helpful assistant helping answer questions about this information:
             cts = null;
 
             AskSLMButton.Content = "Answer";
+        }
+
+        private async void ShowPDFPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (pdfFile == null || selectedPages == null || selectedPages.Count() == 0)
+            {
+                return;
+            }
+
+            var pdfDocument = await Windows.Data.Pdf.PdfDocument.LoadFromFileAsync(pdfFile).AsTask().ConfigureAwait(false);
+            var pageId = selectedPages.First();
+            if (pageId < 0 || pdfDocument.PageCount < pageId)
+            {
+                return;
+            }
+            var page = pdfDocument.GetPage(pageId);
+            InMemoryRandomAccessStream inMemoryRandomAccessStream = new();
+            var rect = page.Dimensions.TrimBox;
+            await page.RenderToStreamAsync(inMemoryRandomAccessStream).AsTask().ConfigureAwait(false);
+
+            DispatcherQueue.TryEnqueue(async () =>
+            {
+                BitmapImage bitmapImage = new();
+
+                await bitmapImage.SetSourceAsync(inMemoryRandomAccessStream);
+
+                PdfImage.Source = bitmapImage;
+
+                PdfImage.Visibility = Visibility.Visible;
+            });
+        }
+
+        private void PdfImage_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            PdfImage.Visibility = Visibility.Collapsed;
         }
     }
 }
