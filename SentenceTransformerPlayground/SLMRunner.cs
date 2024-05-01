@@ -70,7 +70,7 @@ namespace SentenceTransformerPlayground
                         break;
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     break;
                 }

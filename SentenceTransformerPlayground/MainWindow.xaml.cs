@@ -133,8 +133,8 @@ namespace SentenceTransformerPlayground
                     {
                         contentChunks.Add(new TextChunk(content)
                         {
-                            Text = content.Text[index..].Trim()
-                        });
+                            Text = Regex.Replace(content.Text[index..].Trim(), @"(\.){2,}", ".")
+                    });
                         break;
                     }
 
@@ -146,8 +146,8 @@ namespace SentenceTransformerPlayground
 
                     contentChunks.Add(new TextChunk(content)
                     {
-                        Text = content.Text[index..lastIndexOfBreak].Trim()
-                    });
+                        Text = Regex.Replace(content.Text[index..lastIndexOfBreak].Trim(), @"(\.){2,}", ".")
+                    }); ;
 
                     index = lastIndexOfBreak + 1;
                 }
