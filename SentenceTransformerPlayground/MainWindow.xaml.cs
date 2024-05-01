@@ -148,7 +148,7 @@ namespace SentenceTransformerPlayground
                         contentChunks.Add(new TextChunk(content)
                         {
                             Text = Regex.Replace(content.Text[index..].Trim(), @"(\.){2,}", ".")
-                    });
+                        });
                         break;
                     }
 
