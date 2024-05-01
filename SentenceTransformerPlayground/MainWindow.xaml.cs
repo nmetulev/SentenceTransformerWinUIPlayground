@@ -115,7 +115,7 @@ namespace SentenceTransformerPlayground
                         var letter = page.Letters[i];
                         if (lastY != (int)letter.StartBaseLine.Y)
                         {
-                            builder.AppendLine();
+                            builder.Append(" ");
                         }
                         builder.Append(letter.Value);
                         lastY = (int)letter.StartBaseLine.Y;
