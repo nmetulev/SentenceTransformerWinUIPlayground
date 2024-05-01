@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -107,7 +108,20 @@ namespace SentenceTransformerPlayground
             {
                 foreach (var page in document.GetPages())
                 {
-                    var range = page.Text
+                    var builder = new StringBuilder();
+                    int lastY = (int)(page.Letters.FirstOrDefault()?.StartBaseLine.Y ?? 0);
+                    for (var i = 0; i < page.Letters.Count; i++)
+                    {
+                        var letter = page.Letters[i];
+                        if (lastY != (int)letter.StartBaseLine.Y)
+                        {
+                            builder.AppendLine();
+                        }
+                        builder.Append(letter.Value);
+                        lastY = (int)letter.StartBaseLine.Y;
+                    }
+
+                    var range = builder.ToString()
                             .Split('\r', '\n', StringSplitOptions.RemoveEmptyEntries)
                             .Select(x => MyRegex().Replace(x, ""))
                             .Where(x => !string.IsNullOrWhiteSpace(x))
