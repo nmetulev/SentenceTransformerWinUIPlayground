@@ -248,10 +248,10 @@ You are a helpful assistant helping answer questions about this information:
 
             SLMRunner.SearchMaxLength = Math.Min(4096, Math.Max(1024, (int)(RAGService.GetAdapters().Select(x => (long)x.Description1.DedicatedVideoMemory).Max() / (1024 * 1024))));
 
-            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 1, 1);
+            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 2, 4);
             if (!contents.Any() || contents.First().Text!.Length < 256)
             {
-                contents = await RAGService.Search(SearchTextBox.Text, 1, 3);
+                contents = await RAGService.Search(SearchTextBox.Text, 3, 3);
             }
 
             selectedPages = contents.Select(c => (uint)c.Page).Distinct().ToList();
