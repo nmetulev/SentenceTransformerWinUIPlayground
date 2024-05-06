@@ -11,6 +11,7 @@
     <Nullable>enable</Nullable>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,10 +29,10 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.3" PrivateAssets="contentfiles;analyzers" ExcludeAssets="build" />
     <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML" Version="0.2.0-rc6" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240404000" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240428000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />
     <PackageReference Include="PdfPig" Version="0.1.8" />
-    <PackageReference Include="SharpDX.DXGI" Version="4.2.0" />
+    <PackageReference Include="TerraFX.Interop.Windows" Version="10.0.22621.6" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 

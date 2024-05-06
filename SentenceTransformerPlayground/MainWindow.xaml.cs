@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -109,19 +108,6 @@ namespace SentenceTransformerPlayground
                 foreach (var page in document.GetPages())
                 {
                     var words = page.GetWords();
-                    //var builder = new StringBuilder();
-                    //int lastY = (int)(page.Letters.FirstOrDefault()?.StartBaseLine.Y ?? 0);
-                    //for (var i = 0; i < page.Letters.Count; i++)
-                    //{
-                    //    var letter = page.Letters[i];
-
-                    //    if (lastY != (int)letter.StartBaseLine.Y)
-                    //    {
-                    //        builder.Append("\n");
-                    //    }
-                    //    builder.Append(letter.Value);
-                    //    lastY = (int)letter.StartBaseLine.Y;
-                    //}
                     var builder = string.Join(" ", words);
 
                     var range = builder
@@ -138,7 +124,7 @@ namespace SentenceTransformerPlayground
                 }
             }
 
-            var maxLength = 1000;
+            var maxLength = 1024 / 3;
             for (int i = 0; i < contents.Count; i++)
             {
                 var content = contents[i];
@@ -249,21 +235,22 @@ You are a helpful assistant helping answer questions about this information:
             cts = new CancellationTokenSource();
             AskSLMButton.Content = "Cancel";
 
-            SLMRunner.SearchMaxLength = Math.Min(4096, Math.Max(1024, (int)(RAGService.GetAdapters().Select(x => (long)x.Description1.DedicatedVideoMemory).Max() / (1024 * 1024))));
+            SLMRunner.SearchMaxLength = Math.Min(4096, Math.Max(1024, (int)(RAGService.MaxDedicatedVideoMemory / (1024 * 1024))));
 
-            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 2, 1);
+            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 3, 1);
 
             selectedPages = contents.Select(c => (uint)c.Page).Distinct().ToList();
 
             PagesUsedRun.Text = $"Using page(s) : {string.Join(", ", selectedPages)}";
 
-            prompt += string.Join(Environment.NewLine, contents.Distinct().Select(c => $"Page {c.Page}: {c.Text}" + Environment.NewLine));
+            var pagesChunks = contents.GroupBy(c => c.Page).Select(g => new { Page = g.Key, Text = string.Join(Environment.NewLine, g.OrderBy(g => g.TextChunkId).Select(c => c.Text)) }).ToList();
+
+            prompt += string.Join(Environment.NewLine, pagesChunks.Select(c => $"{Environment.NewLine}Page {c.Page}: {c.Text}"));
 
             prompt += $"""
 <|end|>
 <|user|>
-{SearchTextBox.Text}
-<|end|>
+{SearchTextBox.Text}<|end|>
 <|assistant|>
 """;
 

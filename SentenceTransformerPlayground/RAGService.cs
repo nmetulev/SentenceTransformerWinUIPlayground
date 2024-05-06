@@ -8,7 +8,7 @@ using System.Linq;
 using System.IO;
 using VectorDB;
 using BERTTokenizers.Base;
-using SharpDX.DXGI;
+using SentenceTransformerPlayground.DXGIService;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System.Threading;
 using System.Text.RegularExpressions;
@@ -22,7 +22,6 @@ namespace SentenceTransformerPlayground
         private readonly string modelDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "model\\all-MiniLM-L6-v2");
         private InferenceSession? _inferenceSession;
         private MyTokenizer? tokenizer = null;
-        private List<TextChunk>? _content;
         private VectorCollection<TextChunk>? _embeddings = null;
 
         public event EventHandler? ResourcesLoaded = null;
@@ -30,11 +29,13 @@ namespace SentenceTransformerPlayground
         [MemberNotNullWhen(true, nameof(_inferenceSession))]
         public bool IsModelReady => _inferenceSession != null;
 
-        [MemberNotNullWhen(true, nameof(_embeddings), nameof(_content))]
-        public bool IsEmbeddingsReady => _embeddings != null && _content != null;
+        [MemberNotNullWhen(true, nameof(_embeddings))]
+        public bool IsEmbeddingsReady => _embeddings != null;
 
-        [MemberNotNullWhen(true, nameof(_inferenceSession), nameof(_embeddings), nameof(_content))]
+        [MemberNotNullWhen(true, nameof(_inferenceSession), nameof(_embeddings))]
         public bool IsReady => IsModelReady && IsEmbeddingsReady;
+
+        public nuint MaxDedicatedVideoMemory { get; internal set; }
 
         [MemberNotNull(nameof(_inferenceSession))]
         private void InitModel()
@@ -49,47 +50,14 @@ namespace SentenceTransformerPlayground
                 LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_INFO
             };
 
-            int deviceId = GetBestDeviceId();
+            int deviceId = GraphicsService.GetBestDeviceId(out nuint maxDedicatedVideoMemory);
+            MaxDedicatedVideoMemory = maxDedicatedVideoMemory;
 
             sessionOptions.AppendExecutionProvider_DML(deviceId);
 
             _inferenceSession = new InferenceSession($@"{modelDir}\model.onnx", sessionOptions);
 
             ResourcesLoaded?.Invoke(this, EventArgs.Empty);
-        }
-
-        public static List<Adapter1> GetAdapters()
-        {
-            var factory1 = new Factory1();
-            var adapters = new List<Adapter1>();
-            for (int i = 0; i < factory1.GetAdapterCount1(); i++)
-            {
-                adapters.Add(factory1.GetAdapter1(i));
-            }
-
-            return adapters;
-        }
-
-        private static int GetBestDeviceId()
-        {
-            int deviceId = 0;
-            Adapter1? selectedAdapter = null;
-            List<Adapter1> list = GetAdapters();
-            for (int i = 0; i < list.Count; i++)
-            {
-                Adapter1? adapter = list[i];
-                Debug.WriteLine($"Adapter {i}:");
-                Debug.WriteLine($"\tDescription: {adapter.Description1.Description}");
-                Debug.WriteLine($"\tDedicatedVideoMemory: {(long)adapter.Description1.DedicatedVideoMemory / 1000000000}GB");
-                Debug.WriteLine($"\tSharedSystemMemory: {(long)adapter.Description1.SharedSystemMemory / 1000000000}GB");
-                if (selectedAdapter == null || (long)adapter.Description1.DedicatedVideoMemory > (long)selectedAdapter.Description1.DedicatedVideoMemory)
-                {
-                    selectedAdapter = adapter;
-                    deviceId = i;
-                }
-            }
-
-            return deviceId;
         }
 
         private async Task<float[][]> GetEmbeddingsAsync(params string[] sentences)
@@ -261,11 +229,11 @@ namespace SentenceTransformerPlayground
             for (int i = 0; i < top; i++)
             {
                 var indexMin = Math.Max(0, ranking[i] - range);
-                var indexMax = Math.Min(indexMin + range, _content.Count);
-                contents.AddRange(_content.Skip(indexMin).Take(indexMax - indexMin).ToList());
+                var indexMax = Math.Min(indexMin + range, _embeddings.Objects.Count);
+                contents.AddRange(_embeddings.Objects.Skip(indexMin).Take(indexMax - indexMin).ToList());
             }
 
-            return contents;
+            return contents.DistinctBy(c => c.TextChunkId).ToList();
         }
 
         public async Task InitializeAsync(List<TextChunk>? contents = null, EventHandler<float>? progress = null, CancellationToken ct = default)
@@ -273,10 +241,6 @@ namespace SentenceTransformerPlayground
             if (contents == null)
             {
                 _embeddings = await VectorCollection<TextChunk>.LoadFromDiskAsync("vectors.vec", ct).ConfigureAwait(false);
-                if (_embeddings != null)
-                {
-                    _content = _embeddings.Objects.ToList();
-                }
 
                 ResourcesLoaded?.Invoke(this, EventArgs.Empty);
 
@@ -285,9 +249,7 @@ namespace SentenceTransformerPlayground
                 return;
             }
 
-            _content = contents.ToList();
-
-            if (_content.Count == 0)
+            if (contents.Count == 0)
             {
                 await Task.Run(InitModel, ct).ConfigureAwait(false);
 
@@ -296,25 +258,39 @@ namespace SentenceTransformerPlayground
 
             await Task.Run(InitModel, ct).ConfigureAwait(false);
 
+            int slidingWindowSize = 3;
+            List<TextChunk> splitContents = new List<TextChunk>();
+            for (int i = 0; i < contents.Count - slidingWindowSize + 1; i++)
+            {
+                string text = string.Join(" ", contents[i..].Take(slidingWindowSize).Select(c => c.Text!));
+                splitContents.Add(
+                    new TextChunk(contents[i])
+                    {
+                        Text = text,
+                        ChunkIndexInSource = i
+                    });
+            }
+            contents = splitContents;
+
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             await Task.Run(async () =>
             {
                 int chunkSize = 32;
-                for (int i = 0; i < _content.Count; i += chunkSize)
+                for (int i = 0; i < contents.Count; i += chunkSize)
                 {
                     if (ct.IsCancellationRequested)
                     {
                         return;
                     }
-                    var chunk = _content.Skip(i).Take(chunkSize).ToList();
+                    var chunk = contents.Skip(i).Take(chunkSize).ToList();
                     var vectors = await GetEmbeddingsAsync(chunk.Select(c => c.Text!).ToArray()).ConfigureAwait(false);
                     for (int j = 0; j < chunk.Count; j++)
                     {
                         chunk[j].Vectors = vectors[j];
                     }
 
-                    progress?.Invoke(this, (float)i / _content.Count);
+                    progress?.Invoke(this, (float)i / contents.Count);
                 }
             }, ct).ConfigureAwait(false);
 
@@ -325,7 +301,7 @@ namespace SentenceTransformerPlayground
 
             try
             {
-                _embeddings = new VectorCollection<TextChunk>(_content.Count, _content);
+                _embeddings = new VectorCollection<TextChunk>(contents.Count, contents);
                 await _embeddings.SaveToDiskAsync("vectors.vec", ct).ConfigureAwait(false);
 
                 stopwatch.Stop();
