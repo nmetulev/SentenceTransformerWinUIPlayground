@@ -41,7 +41,7 @@ namespace SentenceTransformerPlayground
 
             var sequences = tokenizer.Encode(prompt);
 
-            generatorParams.SetSearchOption("max_length", SearchMaxLength);
+            generatorParams.SetSearchOption("max_length", 1024);
             generatorParams.SetInputSequences(sequences);
             generatorParams.TryGraphCaptureWithMaxBatchSize(1);
 

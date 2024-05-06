@@ -108,20 +108,23 @@ namespace SentenceTransformerPlayground
             {
                 foreach (var page in document.GetPages())
                 {
-                    var builder = new StringBuilder();
-                    int lastY = (int)(page.Letters.FirstOrDefault()?.StartBaseLine.Y ?? 0);
-                    for (var i = 0; i < page.Letters.Count; i++)
-                    {
-                        var letter = page.Letters[i];
-                        if (lastY != (int)letter.StartBaseLine.Y)
-                        {
-                            builder.Append(" ");
-                        }
-                        builder.Append(letter.Value);
-                        lastY = (int)letter.StartBaseLine.Y;
-                    }
+                    var words = page.GetWords();
+                    //var builder = new StringBuilder();
+                    //int lastY = (int)(page.Letters.FirstOrDefault()?.StartBaseLine.Y ?? 0);
+                    //for (var i = 0; i < page.Letters.Count; i++)
+                    //{
+                    //    var letter = page.Letters[i];
 
-                    var range = builder.ToString()
+                    //    if (lastY != (int)letter.StartBaseLine.Y)
+                    //    {
+                    //        builder.Append("\n");
+                    //    }
+                    //    builder.Append(letter.Value);
+                    //    lastY = (int)letter.StartBaseLine.Y;
+                    //}
+                    var builder = string.Join(" ", words);
+
+                    var range = builder
                             .Split('\r', '\n', StringSplitOptions.RemoveEmptyEntries)
                             .Select(x => MyRegex().Replace(x, ""))
                             .Where(x => !string.IsNullOrWhiteSpace(x))
@@ -135,7 +138,7 @@ namespace SentenceTransformerPlayground
                 }
             }
 
-            var maxLength = 1024;
+            var maxLength = 1000;
             for (int i = 0; i < contents.Count; i++)
             {
                 var content = contents[i];
@@ -248,11 +251,7 @@ You are a helpful assistant helping answer questions about this information:
 
             SLMRunner.SearchMaxLength = Math.Min(4096, Math.Max(1024, (int)(RAGService.GetAdapters().Select(x => (long)x.Description1.DedicatedVideoMemory).Max() / (1024 * 1024))));
 
-            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 2, 4);
-            if (!contents.Any() || contents.First().Text!.Length < 256)
-            {
-                contents = await RAGService.Search(SearchTextBox.Text, 3, 3);
-            }
+            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 2, 1);
 
             selectedPages = contents.Select(c => (uint)c.Page).Distinct().ToList();
 

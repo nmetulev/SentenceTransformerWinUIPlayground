@@ -27,7 +27,7 @@
     <PackageReference Include="BERTTokenizers" Version="1.2.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.17.3" PrivateAssets="contentfiles;analyzers" ExcludeAssets="build" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML" Version="0.2.0-rc4" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML" Version="0.2.0-rc6" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.240404000" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.3233" />
     <PackageReference Include="PdfPig" Version="0.1.8" />
