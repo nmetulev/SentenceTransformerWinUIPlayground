@@ -28,16 +28,26 @@
             <TextBlock x:Name="IndexPDFProgressTextBlock" Margin="0,0,0,4"/>
             <ProgressBar x:Name="IndexPDFProgressBar"/>
         </StackPanel>
-        <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0"/>
+        <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0" FontSize="18" Margin="8"/>
         <Button x:Name="AskSLMButton" IsEnabled="False" Content="Answer" Click="AskSLMButton_Click" Grid.Row="2" Grid.Column="1" Margin="8"/>
         <ScrollView Grid.Row="3" Grid.ColumnSpan="2" Padding="16">
-            <TextBlock TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True">
+            <TextBlock TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True" FontSize="18">
                 <Run x:Name="PagesUsedRun"/>
                 <LineBreak/>
                 <LineBreak/>
                 <Run x:Name="AnswerRun"/>
             </TextBlock>
         </ScrollView>
-        <Image x:Name="PdfImage" Grid.RowSpan="4" Grid.ColumnSpan="2" Visibility="Collapsed" Tapped="PdfImage_Tapped" Stretch="Uniform"/>
+        <Grid x:Name="PdfImageGrid" Grid.RowSpan="4" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#88000000">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Image x:Name="PdfImage" Tapped="PdfImage_Tapped" Stretch="Uniform" Grid.Column="1" Margin="0,16"/>
+            <Button x:Name="PreviousPageButton" Content="&lt;" Click="PreviousPageButton_Click" Grid.Column="0" HorizontalAlignment="Right" Margin="16"/>
+            <Button x:Name="NextPageButton" Content="&gt;" Click="NextPageButton_Click" Grid.Column="2" HorizontalAlignment="Left" Margin="16"/>
+            <TextBlock x:Name="PageNumberTextBlock" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="16" FontWeight="Bold" Foreground="White"/>
+        </Grid>
     </Grid>
 </Window>

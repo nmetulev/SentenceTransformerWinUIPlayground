@@ -22,6 +22,7 @@ namespace SentenceTransformerPlayground
         private readonly RAGService RAGService;
         private CancellationTokenSource? cts;
         private List<uint>? selectedPages = null;
+        private int selectedPageIndex = -1;
         private StorageFile? pdfFile;
 
         [GeneratedRegex(@"[\u0000-\u001F\u007F-\uFFFF]")]
@@ -240,6 +241,7 @@ You are a helpful assistant helping answer questions about this information:
             List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 3, 1);
 
             selectedPages = contents.Select(c => (uint)c.Page).Distinct().ToList();
+            selectedPageIndex = 0;
 
             PagesUsedRun.Text = $"Using page(s) : {string.Join(", ", selectedPages)}";
 
@@ -273,13 +275,18 @@ You are a helpful assistant helping answer questions about this information:
 
         private async void ShowPDFPage_Click(object sender, RoutedEventArgs e)
         {
+            await UpdatePdfImageAsync().ConfigureAwait(false);
+        }
+
+        private async Task UpdatePdfImageAsync()
+        {
             if (pdfFile == null || selectedPages == null || selectedPages.Count() == 0)
             {
                 return;
             }
 
             var pdfDocument = await Windows.Data.Pdf.PdfDocument.LoadFromFileAsync(pdfFile).AsTask().ConfigureAwait(false);
-            var pageId = selectedPages.First();
+            var pageId = selectedPages[selectedPageIndex];
             if (pageId < 0 || pdfDocument.PageCount < pageId)
             {
                 return;
@@ -296,14 +303,49 @@ You are a helpful assistant helping answer questions about this information:
                 await bitmapImage.SetSourceAsync(inMemoryRandomAccessStream);
 
                 PdfImage.Source = bitmapImage;
+                PageNumberTextBlock.Text = $"{pageId}/{pdfDocument.PageCount}";
 
-                PdfImage.Visibility = Visibility.Visible;
+                PdfImageGrid.Visibility = Visibility.Visible;
+                UpdatePreviousAndNextPageButtonEnabled();
             });
+        }
+
+        private void UpdatePreviousAndNextPageButtonEnabled()
+        {
+            if (selectedPages == null || selectedPages.Count == 0)
+            {
+                PreviousPageButton.IsEnabled = false;
+                NextPageButton.IsEnabled = false;
+                return;
+            }
+
+            PreviousPageButton.IsEnabled = selectedPageIndex > 0;
+            NextPageButton.IsEnabled = selectedPageIndex < selectedPages.Count - 1;
         }
 
         private void PdfImage_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
         {
-            PdfImage.Visibility = Visibility.Collapsed;
+            PdfImageGrid.Visibility = Visibility.Collapsed;
+        }
+
+        private async void PreviousPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedPageIndex <= 0)
+            {
+                return;
+            }
+            selectedPageIndex--;
+            await UpdatePdfImageAsync().ConfigureAwait(false);
+        }
+
+        private async void NextPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedPages == null || selectedPageIndex >= selectedPages.Count - 1)
+            {
+                return;
+            }
+            selectedPageIndex++;
+            await UpdatePdfImageAsync().ConfigureAwait(false);
         }
     }
 }
