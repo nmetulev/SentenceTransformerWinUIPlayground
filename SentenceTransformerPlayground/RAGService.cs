@@ -285,6 +285,10 @@ namespace SentenceTransformerPlayground
                     }
                     var chunk = contents.Skip(i).Take(chunkSize).ToList();
                     var vectors = await GetEmbeddingsAsync(chunk.Select(c => c.Text!).ToArray()).ConfigureAwait(false);
+                    if (vectors.Length != chunk.Count)
+                    {
+                        Debugger.Break();
+                    }
                     for (int j = 0; j < chunk.Count; j++)
                     {
                         chunk[j].Vectors = vectors[j];
