@@ -59,14 +59,6 @@ namespace SentenceTransformerPlayground
 
         private async void Grid_Loaded(object sender, RoutedEventArgs e)
         {
-            var localFolder = ApplicationData.Current.LocalFolder;
-
-            pdfFile = (await localFolder.TryGetItemAsync("CurrentPDF.pdf")) as StorageFile;
-            if (pdfFile is not null)
-            {
-                ShowPDFPage.IsEnabled = true;
-            }
-
             await Task.Run(() => Task.WhenAll(SLMRunner.InitializeAsync(), RAGService.InitializeAsync()));
         }
 
@@ -97,8 +89,7 @@ namespace SentenceTransformerPlayground
             IndexPDFProgressBar.Value = 0;
             IndexPDFProgressTextBlock.Text = "Reading PDF...";
 
-            var localFolder = ApplicationData.Current.LocalFolder;
-            pdfFile = await newPdfFile.CopyAsync(localFolder, "CurrentPDF.pdf", NameCollisionOption.ReplaceExisting);
+            pdfFile = newPdfFile;
             ShowPDFPage.IsEnabled = true;
 
             await Task.Delay(1).ConfigureAwait(false);

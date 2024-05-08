@@ -1,10 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace VectorDB
 {
@@ -76,7 +72,7 @@ namespace VectorDB
             return DotProduct(v1, v2);
         }
 
-        public static float CheckOverflow(double x)
+        private static float CheckOverflow(double x)
         {
             if (x >= double.MaxValue)
             {
@@ -85,7 +81,7 @@ namespace VectorDB
             return (float)x;
         }
 
-        public static float DotProduct(float[] a, float[] b)
+        private static float DotProduct(float[] a, float[] b)
         {
             float result = 0.0f;
             for (int i = 0; i < a.Length; i++)
@@ -94,55 +90,5 @@ namespace VectorDB
             }
             return result;
         }
-
-        public static float Magnitude(float[] v)
-        {
-            float result = 0.0f;
-            for (int i = 0; i < v.Length; i++)
-            {
-                result = CheckOverflow(result + CheckOverflow(v[i] * v[i]));
-            }
-            return (float)Math.Sqrt(result);
-        }
-
-        public async Task SaveToDiskAsync(string fileName, CancellationToken ct = default)
-        {
-            using var db = new VectorDBContext<T>(fileName);
-
-            await db.Database.EnsureDeletedAsync(ct);
-
-            await db.Database.EnsureCreatedAsync(ct);
-
-            await db.AddAsync(this, ct);
-
-            await db.SaveChangesAsync(ct);
-        }
-
-        public static async Task<VectorCollection<T>?> LoadFromDiskAsync(string fileName, CancellationToken ct = default)
-        {
-            using var db = new VectorDBContext<T>(fileName);
-
-            try
-            {
-                return await db.VectorCollections
-                    .Include(v => v.Objects).FirstAsync(ct).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                return null;
-            }
-        }
-    }
-
-    public class VectorDBContext<T>(string fileName) : DbContext where T : IVectorObject
-    {
-        public DbSet<VectorCollection<T>> VectorCollections { get; set; }
-
-        public static string DbPath(string fileName)
-        {
-            return Path.Join(Windows.Storage.ApplicationData.Current.LocalFolder.Path, fileName);
-        }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder options) => options.UseSqlite($"Data Source={DbPath(fileName)}");
     }
 }

@@ -240,10 +240,6 @@ namespace SentenceTransformerPlayground
         {
             if (contents == null)
             {
-                _embeddings = await VectorCollection<TextChunk>.LoadFromDiskAsync("vectors.vec", ct).ConfigureAwait(false);
-
-                ResourcesLoaded?.Invoke(this, EventArgs.Empty);
-
                 await Task.Run(InitModel, ct).ConfigureAwait(false);
 
                 return;
@@ -306,7 +302,6 @@ namespace SentenceTransformerPlayground
             try
             {
                 _embeddings = new VectorCollection<TextChunk>(contents.Count, contents);
-                await _embeddings.SaveToDiskAsync("vectors.vec", ct).ConfigureAwait(false);
 
                 stopwatch.Stop();
                 Debug.WriteLine($"Indexing took {stopwatch.ElapsedMilliseconds} ms");
