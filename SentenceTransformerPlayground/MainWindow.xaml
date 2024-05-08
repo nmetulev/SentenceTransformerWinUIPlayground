@@ -12,25 +12,14 @@
     <Grid Loaded="Grid_Loaded">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
-            <RowDefinition Height="Auto"></RowDefinition>
             <RowDefinition Height="*"></RowDefinition>
+            <RowDefinition Height="Auto"></RowDefinition>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Row="0" Padding="16" Grid.ColumnSpan="2">
-            <Button x:Name="IndexPDFButton" Content="Index PDF" Click="IndexPDFButton_Click" IsEnabled="False"/>
-            <Button x:Name="ShowPDFPage" Content="Show PDF Page" Click="ShowPDFPage_Click" IsEnabled="False" />
-        </StackPanel>
-        <StackPanel x:Name="IndexPDFProgressStackPanel" Visibility="Collapsed" Orientation="Vertical" Grid.Row="1" Grid.ColumnSpan="2" Padding="4">
-            <TextBlock x:Name="IndexPDFProgressTextBlock" Margin="0,0,0,4"/>
-            <ProgressBar x:Name="IndexPDFProgressBar"/>
-        </StackPanel>
-        <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0" FontSize="18" Margin="8"/>
-        <Button x:Name="AskSLMButton" IsEnabled="False" Content="Answer" Click="AskSLMButton_Click" Grid.Row="2" Grid.Column="1" Margin="8"/>
-        <ScrollView Grid.Row="3" Grid.ColumnSpan="2" Padding="16">
+        <ScrollView Grid.Row="1" Grid.ColumnSpan="2" Padding="16">
             <TextBlock TextWrapping="WrapWholeWords" IsTextSelectionEnabled="True" FontSize="18">
                 <Run x:Name="PagesUsedRun"/>
                 <LineBreak/>
@@ -38,6 +27,11 @@
                 <Run x:Name="AnswerRun"/>
             </TextBlock>
         </ScrollView>
+        <TextBox x:Name="SearchTextBox" Grid.Row="2" Grid.Column="0" FontSize="18" Margin="8"/>
+        <StackPanel Grid.Row="2" Grid.Column="1" Padding="8">
+            <Button x:Name="AskSLMButton" IsEnabled="False" Content="Answer" Click="AskSLMButton_Click" HorizontalAlignment="Stretch"/>
+            <Button x:Name="ShowPDFPage" Content="Show PDF Page" Click="ShowPDFPage_Click" IsEnabled="False" HorizontalAlignment="Stretch"/>
+        </StackPanel>
         <Grid x:Name="PdfImageGrid" Grid.RowSpan="4" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#88000000">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -48,6 +42,17 @@
             <Button x:Name="PreviousPageButton" Content="&lt;" Click="PreviousPageButton_Click" Grid.Column="0" HorizontalAlignment="Right" Margin="16"/>
             <Button x:Name="NextPageButton" Content="&gt;" Click="NextPageButton_Click" Grid.Column="2" HorizontalAlignment="Left" Margin="16"/>
             <TextBlock x:Name="PageNumberTextBlock" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="16" FontWeight="Bold" Foreground="White"/>
+        </Grid>
+        <Grid x:Name="IndexPDFGrid" Padding="16" Grid.RowSpan="4" Grid.ColumnSpan="2" Background="White">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Button x:Name="IndexPDFButton" Content="Index PDF" Click="IndexPDFButton_Click" IsEnabled="False" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.RowSpan="2"/>
+            <StackPanel x:Name="IndexPDFProgressStackPanel" Visibility="Collapsed" Orientation="Vertical" Grid.Row="1" Padding="4">
+                <TextBlock x:Name="IndexPDFProgressTextBlock" Margin="0,0,0,4"/>
+                <ProgressBar x:Name="IndexPDFProgressBar"/>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

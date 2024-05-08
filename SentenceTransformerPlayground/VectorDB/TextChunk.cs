@@ -23,7 +23,6 @@ namespace VectorDB
             Vectors = textChunk.Vectors;
         }
 
-        public int TextChunkId { get; set; }
         public int Page { get; set; }
         public string? Text { get; set; }
         public int ChunkIndexInSource { get; set; }

@@ -233,7 +233,7 @@ namespace SentenceTransformerPlayground
                 contents.AddRange(_embeddings.Objects.Skip(indexMin).Take(indexMax - indexMin).ToList());
             }
 
-            return contents.DistinctBy(c => c.TextChunkId).ToList();
+            return contents.DistinctBy(c => c.ChunkIndexInSource).ToList();
         }
 
         public async Task InitializeAsync(List<TextChunk>? contents = null, EventHandler<float>? progress = null, CancellationToken ct = default)

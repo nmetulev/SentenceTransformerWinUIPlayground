@@ -31,10 +31,10 @@ namespace SentenceTransformerPlayground
         public MainWindow()
         {
             SLMRunner = new SLMRunner();
-            SLMRunner.ModelLoaded += (sender, e) => DispatcherQueue.TryEnqueue(() => CheckIfReady());
+            SLMRunner.ModelLoaded += (sender, e) => DispatcherQueue.TryEnqueue(() => CheckIfReady(sender));
 
             RAGService = new RAGService();
-            RAGService.ResourcesLoaded += (sender, e) => DispatcherQueue.TryEnqueue(() => CheckIfReady());
+            RAGService.ResourcesLoaded += (sender, e) => DispatcherQueue.TryEnqueue(() => CheckIfReady(sender));
 
             Closed += (sender, e) =>
             {
@@ -47,9 +47,13 @@ namespace SentenceTransformerPlayground
             InitializeComponent();
         }
 
-        private void CheckIfReady()
+        private void CheckIfReady(object? sender)
         {
-            IndexPDFButton.IsEnabled = RAGService.IsModelReady;
+            if (sender == RAGService)
+            {
+                IndexPDFButton.IsEnabled = RAGService.IsModelReady;
+            }
+
             AskSLMButton.IsEnabled = SLMRunner.IsReady && RAGService.IsReady;
             if (RAGService.IsReady)
             {
@@ -202,10 +206,12 @@ namespace SentenceTransformerPlayground
 
             await Task.Delay(1000);
 
-            DispatcherQueue.TryEnqueue(() =>
+            DispatcherQueue.TryEnqueue(async () =>
             {
                 IndexPDFProgressStackPanel.Visibility = Visibility.Collapsed;
                 IndexPDFButton.IsEnabled = RAGService.IsModelReady;
+                await Task.Delay(1000);
+                IndexPDFGrid.Visibility = Visibility.Collapsed;
             });
         }
 
@@ -229,14 +235,14 @@ You are a helpful assistant helping answer questions about this information:
 
             SLMRunner.SearchMaxLength = Math.Min(4096, Math.Max(1024, (int)(RAGService.MaxDedicatedVideoMemory / (1024 * 1024))));
 
-            List<TextChunk> contents = await RAGService.Search(SearchTextBox.Text, 3, 1);
+            List<TextChunk> contents = (await RAGService.Search(SearchTextBox.Text, 3, 1)).OrderBy(c => c.ChunkIndexInSource).ToList();
 
             selectedPages = contents.Select(c => (uint)c.Page).Distinct().ToList();
             selectedPageIndex = 0;
 
             PagesUsedRun.Text = $"Using page(s) : {string.Join(", ", selectedPages)}";
 
-            var pagesChunks = contents.GroupBy(c => c.Page).Select(g => new { Page = g.Key, Text = string.Join(Environment.NewLine, g.OrderBy(g => g.TextChunkId).Select(c => c.Text)) }).ToList();
+            var pagesChunks = contents.GroupBy(c => c.Page).Select(g => new { Page = g.Key, Text = string.Join(Environment.NewLine, g.OrderBy(g => g.ChunkIndexInSource).Select(c => c.Text)) }).ToList();
 
             prompt += string.Join(Environment.NewLine, pagesChunks.Select(c => $"{Environment.NewLine}Page {c.Page}: {c.Text}"));
 
@@ -282,7 +288,7 @@ You are a helpful assistant helping answer questions about this information:
             {
                 return;
             }
-            var page = pdfDocument.GetPage(pageId);
+            var page = pdfDocument.GetPage(pageId - 1);
             InMemoryRandomAccessStream inMemoryRandomAccessStream = new();
             var rect = page.Dimensions.TrimBox;
             await page.RenderToStreamAsync(inMemoryRandomAccessStream).AsTask().ConfigureAwait(false);
